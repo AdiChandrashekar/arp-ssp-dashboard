@@ -74,8 +74,10 @@ function runExport() {
     console.log(`${todo.length} file(s) to export`)
     const done = []
     const entries = []
+    let attempted = 0
     for (const item of todo) {
       if (Date.now() - started > CONFIG.TIME_BUDGET_MS) break
+      attempted++
       try {
         const gz = exportFile_(item.file)
         const blobSha = github_('post', '/git/blobs', { content: Utilities.base64Encode(gz.getBytes()), encoding: 'base64' }).sha
@@ -84,6 +86,11 @@ function runExport() {
         console.log(`exported ${item.month}/${item.district}`)
       } catch (e) {
         console.error(`skipped ${item.month}/${item.district}: ${e.message}`)
+        // Don't retry until the file changes (or resetState()); status() lists these.
+        PropertiesService.getScriptProperties().setProperty(
+          `x_${item.file.getId()}`,
+          JSON.stringify({ t: item.file.getLastUpdated().getTime(), what: `${item.month}/${item.district}`, why: e.message.slice(0, 300) }),
+        )
       }
     }
     if (entries.length) {
@@ -91,18 +98,19 @@ function runExport() {
       const props = PropertiesService.getScriptProperties()
       done.forEach((d) => props.setProperty(`f_${d.file.getId()}`, String(d.file.getLastUpdated().getTime())))
     }
-    const left = todo.length - done.length
+    const left = todo.length - attempted
+    const skipped = attempted - done.length
     PropertiesService.getScriptProperties().setProperty(
       'LAST_RUN',
-      JSON.stringify({ at: new Date().toISOString(), exported: done.length, remaining: left }),
+      JSON.stringify({ at: new Date().toISOString(), exported: done.length, skipped, remaining: left }),
     )
     // Backfill: keep going in a fresh run rather than hitting the 6-minute limit.
     clearContinuation_()
-    if (left > 0 && done.length > 0) {
+    if (left > 0 && attempted > 0) {
       const t = ScriptApp.newTrigger('runExport').timeBased().after(60 * 1000).create()
       PropertiesService.getScriptProperties().setProperty('CONTINUATION_TRIGGER', t.getUniqueId())
     }
-    console.log(`done: ${done.length} exported, ${left} remaining`)
+    console.log(`done: ${done.length} exported, ${skipped} skipped, ${left} remaining`)
   } finally {
     lock.releaseLock()
   }
@@ -114,13 +122,19 @@ function status() {
   console.log('Last run:', props.getProperty('LAST_RUN'))
   const todo = findChangedFiles_()
   console.log(`${todo.length} file(s) waiting:`, todo.map((t) => `${t.month}/${t.district}`).join(', '))
+  const failed = Object.entries(props.getProperties()).filter(([k]) => k.startsWith('x_'))
+  console.log(`${failed.length} file(s) skipped - retried only when the file changes, or after resetState():`)
+  failed.forEach(([, v]) => {
+    const f = JSON.parse(v)
+    console.log(`  ${f.what}: ${f.why}`)
+  })
 }
 
 /** Forget what was exported, so the next run re-exports everything. */
 function resetState() {
   const props = PropertiesService.getScriptProperties()
   Object.keys(props.getProperties())
-    .filter((k) => k.startsWith('f_'))
+    .filter((k) => k.startsWith('f_') || k.startsWith('x_'))
     .forEach((k) => props.deleteProperty(k))
   console.log('Export state cleared.')
 }
@@ -152,8 +166,11 @@ function findChangedFiles_() {
         const file = files.next()
         const district = file.getName().replace(/\.xlsx$/i, '').trim().toUpperCase()
         if (!wanted.has(district)) continue
+        const updated = file.getLastUpdated().getTime()
         const seen = props.getProperty(`f_${file.getId()}`)
-        if (seen && Number(seen) >= file.getLastUpdated().getTime()) continue
+        if (seen && Number(seen) >= updated) continue
+        const failed = props.getProperty(`x_${file.getId()}`)
+        if (failed && JSON.parse(failed).t >= updated) continue
         out.push({ file, month, district })
       }
     }
@@ -200,21 +217,66 @@ function norm_(s) {
   return String(s).normalize('NFC').replace(/\s+/g, ' ').trim()
 }
 
+/** Some exports (the 2025 backfill) have placeholder headers "col_0" ... "col_207". */
+function isPlaceholderHeader_(header) {
+  return header.slice(0, EXPECTED_COLUMNS).every((h, i) => h === `col_${i}`)
+}
+
+/**
+ * With placeholder headers the column names can't be checked, so check the data:
+ * the columns the dashboard relies on, and the ones redacted, must hold what we expect.
+ */
+function validateByContent_(values, name) {
+  const rows = values.slice(1, 301)
+  const share = (col, test) => {
+    const vals = rows.map((r) => String(r[col] ?? '').trim()).filter(Boolean)
+    return vals.length ? vals.filter(test).length / vals.length : 0
+  }
+  const checks = [
+    ['date (col 10)', share(10, (v) => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v)) >= 0.95],
+    ['grade (col 13)', share(13, (v) => v.startsWith('कक्षा')) >= 0.9],
+    ['designation (col 9)', share(9, (v) => /ARP|S\s*R\s*G|DIET|Mentor/i.test(v)) >= 0.9],
+    ['mentor mobile (col 8)', share(8, (v) => /^[6-9]\d{9}$/.test(v)) >= 0.9],
+    ['teacher name (col 149)', share(149, (v) => !/^\d+$/.test(v)) >= 0.9],
+    ['teacher HRMS code (col 150)', share(150, (v) => /^\d+$/.test(v)) >= 0.8],
+    ['teacher mobile (col 152)', share(152, (v) => /^\d{10}$/.test(v)) >= 0.8],
+  ]
+  const failed = checks.filter(([, ok]) => !ok).map(([what]) => what)
+  if (failed.length) throw new Error(`${name}: placeholder headers and unexpected data in ${failed.join(', ')} - not exporting`)
+}
+
+/** Columns (other than the mentor mobile) whose values are mostly 10-digit mobile numbers. */
+function phoneLikeColumns_(values) {
+  const rows = values.slice(1, 301)
+  const out = []
+  for (let c = 0; c < EXPECTED_COLUMNS; c++) {
+    if (c === MENTOR_MOBILE_COL[0]) continue
+    const vals = rows.map((r) => String(r[c] ?? '').trim()).filter(Boolean)
+    if (vals.length >= 5 && vals.filter((v) => /^[6-9]\d{9}$/.test(v)).length / vals.length >= 0.5) out.push(c)
+  }
+  return out
+}
+
 function redact_(values, name) {
   if (!values.length) throw new Error('empty sheet')
   const header = values[0].map(norm_)
   if (header.length < EXPECTED_COLUMNS) throw new Error(`${name}: ${header.length} columns, expected ${EXPECTED_COLUMNS}`)
   const checks = [...REDACT, MENTOR_MOBILE_COL, ...(CONFIG.REDACT_TEACHER_NAMES ? [TEACHER_NAME_COL] : [])]
-  for (const [col, prefix] of checks) {
-    if (!header[col].startsWith(norm_(prefix))) {
-      throw new Error(`${name}: column ${col} is "${header[col].slice(0, 50)}", expected "${prefix}" - layout changed, not exporting`)
+  if (isPlaceholderHeader_(header)) {
+    validateByContent_(values, name)
+  } else {
+    for (const [col, prefix] of checks) {
+      if (!header[col].startsWith(norm_(prefix))) {
+        throw new Error(`${name}: column ${col} is "${header[col].slice(0, 50)}", expected "${prefix}" - layout changed, not exporting`)
+      }
     }
   }
   const blank = new Set(checks.map(([c]) => c).filter((c) => c !== MENTOR_MOBILE_COL[0]))
-  // Belt and braces: any other column that looks like a phone number or HRMS code.
+  // Belt and braces: any other column that is named, or looks like, a phone number or HRMS code.
   header.forEach((h, c) => {
     if (c !== MENTOR_MOBILE_COL[0] && (/mobile|phone/i.test(h) || h.includes('मोबाइल') || h.includes('मानव संपदा'))) blank.add(c)
   })
+  phoneLikeColumns_(values).forEach((c) => blank.add(c))
   const salt = PropertiesService.getScriptProperties().getProperty('HASH_SALT')
   if (!salt) throw new Error('HASH_SALT missing - run setup()')
   return values.map((row, i) => {

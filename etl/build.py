@@ -241,6 +241,26 @@ def check_headers(headers, fname):
             raise SystemExit(f"{fname}: column {pos} is '{h[:60]}', expected it to start with '{prefix}'")
 
 
+def check_content(d, fname):
+    """For files with placeholder headers ("col_0"...), check the data sits where the build expects it."""
+    rows = d.iloc[1:301]
+
+    def share(col, pattern):
+        vals = rows[col].dropna().astype(str).str.strip()
+        vals = vals[vals != ""]
+        return vals.str.match(pattern).mean() if len(vals) else 0
+
+    checks = {
+        "date (col 10)": share(COL["date"][0], r"\d{1,2}/\d{1,2}/\d{4}$") >= 0.95,
+        "grade (col 13)": share(COL["grade"][0], "कक्षा") >= 0.9,
+        "designation (col 9)": share(COL["desig"][0], r"(?i).*(ARP|S\s*R\s*G|DIET|Mentor)") >= 0.9,
+        "UDISE (col 5)": share(COL["udise"][0], r"\d{10,11}$") >= 0.95,
+    }
+    failed = [k for k, ok in checks.items() if not ok]
+    if failed:
+        raise SystemExit(f"{fname}: placeholder headers and unexpected data in {', '.join(failed)}")
+
+
 def mentor_category(desig):
     d = (desig or "").upper()
     if d.startswith("ARP"):
@@ -417,7 +437,11 @@ def read_exports(raw_dir):
             d = pd.read_excel(f, dtype=str, header=None)
         if len(d) < 2:
             continue
-        check_headers(list(d.iloc[0]), name)
+        headers = list(d.iloc[0])
+        if all(str(h).strip() == f"col_{i}" for i, h in enumerate(headers[:208])):
+            check_content(d, name)  # 2025 backfill files have placeholder headers
+        else:
+            check_headers(headers, name)
         frames.append(d.iloc[1:, :208].reset_index(drop=True))
     raw = pd.concat(frames, ignore_index=True)
     print(f"  read {len(files)} files, {len(raw)} rows")
