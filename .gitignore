@@ -1,0 +1,9 @@
+# Raw exports contain teacher/mentor phone numbers and student names - never commit them.
+data/raw/
+*.xlsx
+
+node_modules/
+web/dist/
+__pycache__/
+*.pyc
+.claude/settings.local.json
