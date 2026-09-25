@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { applyFilters, countBy, fmt, groupBy, kpiRate, mentorSummary, monthLabel, monthShort, monthsInPeriod, periodLabel, statusFor } from '../data.js'
+import { applyFilters, countBy, fmt, groupBy, kpiRate, mean, mentorSummary, monthLabel, monthShort, monthsInPeriod, periodLabel, statusFor } from '../data.js'
 import { Card, DataTable, Empty, Pill, Section, StatCard, Tabs } from '../components/ui.jsx'
 import { BarList, ColumnChart, Heatmap, MonthCalendar } from '../components/charts.jsx'
 
@@ -118,6 +118,8 @@ export default function MentorDetail({ data, filters, setFilters, nav, id, back 
 
       <KpiProfile data={data} visits={m.inPeriod} peers={m.peers} />
 
+      {data.adoptedBy.has(id) && <AdoptedSchools data={data} id={id} filters={filters} nav={nav} />}
+
       <Tabs
         value={tab}
         onChange={setTab}
@@ -217,6 +219,63 @@ function KpiProfile({ data, visits, peers }) {
   return (
     <Card title="FLN classroom practices observed" sub="% of this mentor's Grade 1-3 Hindi/Maths observations · compared with peers under the same filters">
       {rows.length ? <BarList data={rows} /> : <Empty>No FLN classroom observations in this selection.</Empty>}
+    </Card>
+  )
+}
+
+// This ARP's SSP-adopted schools, month by month since the programme start:
+// who visited each one, in which grades, and the practice score recorded.
+function AdoptedSchools({ data, id, filters, nav }) {
+  const months = data.months.filter((mo) => mo >= data.meta.sspFrom)
+  const adopted = data.adoptedBy.get(id)
+  const visits = applyFilters(data.visits, { ...filters, ssp: '' }, { period: false }).filter((v) => v.month >= data.meta.sspFrom && v.ssp)
+  const bySm = groupBy(visits, (v) => `${v.school}|${v.month}`)
+  return (
+    <Card
+      title={`Adopted schools (SSP) · ${adopted.length}`}
+      sub="Each cell: visits that month · ★ = this ARP visited · grades observed · FLN / Gr 4-8 practice score"
+    >
+      <div className="heatmap-wrap">
+        <table className="heatmap matrix">
+          <thead>
+            <tr>
+              <th className="hm-rowhead">School</th>
+              {months.map((mo) => (
+                <th key={mo} className="hm-colhead">{monthShort(mo)}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {adopted.map((s) => (
+              <tr key={s.id}>
+                <th className="hm-rowhead">
+                  <a href="#" onClick={(e) => { e.preventDefault(); nav('schools', s.id) }}>{s.name}</a>
+                </th>
+                {months.map((mo) => {
+                  const vs = bySm.get(`${s.id}|${mo}`)
+                  if (!vs) return <td key={mo} className="hm-cell matrix-cell"><span className="mc-empty">—</span></td>
+                  const own = vs.some((v) => v.ownArp)
+                  const sc = mean(vs.map((v) => v.flnScore ?? v.upScore))
+                  const others = [...new Set(vs.filter((v) => !v.ownArp).map((v) => data.mentors[v.mentor].name))]
+                  return (
+                    <td
+                      key={mo}
+                      className={`hm-cell matrix-cell${own ? ' own-cell' : ''}`}
+                      title={`${vs.length} visit(s)${others.length ? ` · also visited by ${others.join(', ')}` : ''}`}
+                    >
+                      <div className="mc-main">
+                        {vs.length}
+                        {own && <sup>★</sup>} <span className="muted">{fmt.pct(sc)}</span>
+                      </div>
+                      <div className="mc-grades">{[...new Set(vs.map((v) => v.grade).filter(Boolean))].sort().map((g) => `G${g}`).join(' ')}</div>
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Card>
   )
 }

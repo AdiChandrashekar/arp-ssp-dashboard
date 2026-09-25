@@ -40,7 +40,13 @@ export default function SchoolDetail({ data, filters, nav, id }) {
         </div>
         <h1>{school.name}</h1>
         <div className="page-meta">
-          <Pill>UDISE {school.udise}</Pill> <Pill>{school.block} block</Pill> <Pill>{school.type}</Pill> <Pill>{school.area}</Pill>
+          <Pill>UDISE {school.udise}</Pill> <Pill>{school.block} block</Pill> {school.type && <Pill>{school.type}</Pill>} {school.area && <Pill>{school.area}</Pill>}
+          {school.ssp ? (
+            <span className="pill pill-ssp">
+              SSP · adopted by {school.sspArp != null ? data.mentors[school.sspArp].name : school.sspArpName || 'unknown ARP'}
+            </span>
+          ) : null}
+          {school.po ? <Pill>PO-adopted</Pill> : null}
         </div>
       </div>
 
@@ -103,7 +109,17 @@ export default function SchoolDetail({ data, filters, nav, id }) {
           onRowClick={(v) => nav(data.mentors[v.mentor].category === 'ARP' ? 'arps' : 'mentors', v.mentor)}
           columns={[
             { key: 'date', label: 'Date', value: (v) => v.date, render: (v) => fmt.date(v.date) },
-            { key: 'mentor', label: 'Mentor', value: (v) => data.mentors[v.mentor].name, render: (v) => <span className="link">{data.mentors[v.mentor].name}</span> },
+            {
+              key: 'mentor',
+              label: 'Mentor',
+              value: (v) => data.mentors[v.mentor].name,
+              render: (v) => (
+                <span className="link">
+                  {data.mentors[v.mentor].name}
+                  {v.ownArp && <span className="own-tag" title="The ARP who adopted this school"> ★ own ARP</span>}
+                </span>
+              ),
+            },
             { key: 'desig', label: 'Designation', value: (v) => data.mentors[v.mentor].designation },
             { key: 'grade', label: 'Grade', value: (v) => v.grade, align: 'right' },
             { key: 'subject', label: 'Subject', value: (v) => v.subject },

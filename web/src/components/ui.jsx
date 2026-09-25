@@ -21,7 +21,7 @@ export function StatCard({ label, value, sub, status = 'neutral', onClick }) {
 export function Section({ title, sub, actions, children }) {
   return (
     <section className="section">
-      {(title || actions) && (
+      {(title || sub || actions) && (
         <div className="section-head">
           <div>
             {title && <h3 className="section-title">{title}</h3>}

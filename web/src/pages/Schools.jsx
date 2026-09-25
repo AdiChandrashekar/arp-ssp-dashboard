@@ -7,7 +7,9 @@ export default function Schools({ data, filters, nav }) {
   const [view, setView] = useState('all')
 
   const m = useMemo(() => {
-    const universe = data.schools.filter((s) => (!filters.block || s.block === filters.block) && (!filters.stype || s.type === filters.stype))
+    const universe = data.schools.filter(
+      (s) => (!filters.block || s.block === filters.block) && (!filters.stype || s.type === filters.stype) && (!filters.ssp || s.ssp),
+    )
     const inPeriod = groupBy(applyFilters(data.visits, filters), (v) => v.school)
     const allTime = groupBy(applyFilters(data.visits, { ...filters, grade: '', subject: '' }, { period: false }), (v) => v.school)
     const rows = universe.map((s) => {
@@ -21,6 +23,8 @@ export default function Schools({ data, filters, nav }) {
         mentors: new Set(vs.map((v) => v.mentor)).size,
         last: vs.reduce((a, v) => (v.date > a ? v.date : a), ''),
         lastEver: all.reduce((a, v) => (v.date > a ? v.date : a), ''),
+        ownVisits: vs.filter((v) => v.ownArp).length,
+        adoptedBy: s.ssp ? (s.sspArp != null ? data.mentors[s.sspArp].name : s.sspArpName) : null,
         fln: mean(vs.map((v) => v.flnScore)),
         up: mean(vs.map((v) => v.upScore)),
       }
@@ -42,7 +46,7 @@ export default function Schools({ data, filters, nav }) {
       </div>
 
       <div className="stats">
-        <StatCard label="Schools" value={fmt.int(m.rows.length)} sub="that received at least one visit since Jul 2025" />
+        <StatCard label={filters.ssp ? 'SSP-adopted schools' : 'Schools'} value={fmt.int(m.rows.length)} sub={filters.ssp ? 'from the SSP adoption tracker' : 'in the district school list'} />
         <StatCard label="Visited" value={fmt.int(visited.length)} sub={`${fmt.pct((visited.length / Math.max(1, m.rows.length)) * 100)} of schools · ${pl}`} />
         <StatCard label="Not visited" value={fmt.int(notVisited.length)} sub={`in ${pl}`} status={notVisited.length === 0 ? 'good' : 'neutral'} onClick={() => setView('not')} />
         <StatCard label="Visited 3+ times" value={fmt.int(three)} sub={`in ${pl}`} />
@@ -58,7 +62,7 @@ export default function Schools({ data, filters, nav }) {
           { value: 'not', label: `Not visited (${notVisited.length})` },
         ]}
       />
-      <Section sub="The school list is built from the visit data, so a school never visited since July 2025 will not appear. Click a school to see every visit.">
+      <Section sub="The school list comes from the SSP adoption tracker (every school in the district) plus any other school that got a visit. Click a school to see every visit.">
         <DataTable
           key={view}
           csvName={`schools-${view}-${pl}.csv`}
@@ -71,9 +75,16 @@ export default function Schools({ data, filters, nav }) {
             { key: 'udise', label: 'UDISE', value: (s) => s.udise },
             { key: 'block', label: 'Block', value: (s) => s.block },
             { key: 'type', label: 'Type', value: (s) => s.type },
+            {
+              key: 'adoptedBy',
+              label: 'SSP adopted by',
+              value: (s) => s.adoptedBy,
+              render: (s) => (s.ssp ? <span className="pill pill-ssp" title="School Support Programme">{s.adoptedBy || 'SSP'}</span> : ''),
+            },
             { key: 'visits', label: `Visits (${pl})`, value: (s) => s.visits, align: 'right' },
             { key: 'grades', label: 'Grades observed', value: (s) => s.grades.join(', '), render: (s) => <GradeChips grades={s.grades} />, sortable: false },
             { key: 'mentors', label: 'Mentors', value: (s) => s.mentors, align: 'right' },
+            ...(filters.ssp ? [{ key: 'ownVisits', label: 'By own ARP', value: (s) => s.ownVisits, align: 'right' }] : []),
             { key: 'allVisits', label: 'Visits (all time)', value: (s) => s.allVisits, align: 'right' },
             { key: 'last', label: view === 'not' ? 'Last visit ever' : 'Last visit', value: (s) => (view === 'not' ? s.lastEver : s.last) || null, render: (s) => fmt.date(view === 'not' ? s.lastEver : s.last) },
             { key: 'lastEver', label: 'Last visit ever', value: (s) => s.lastEver || null, render: (s) => fmt.date(s.lastEver) },

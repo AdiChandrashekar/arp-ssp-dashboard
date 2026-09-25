@@ -16,8 +16,9 @@ export default function About({ data }) {
 
       <h3>Source</h3>
       <p>
-        Mentor-app classroom observation exports for {meta.district} district, {fmt.date(meta.dateFrom)} to {fmt.date(meta.dateTo)} ({meta.sourceFiles.length} monthly files,{' '}
-        {fmt.int(data.visits.length)} observations). No data for June 2026 (summer vacation). Last rebuilt {new Date(meta.generatedAt).toLocaleString('en-IN')}.
+        Mentor-app classroom observation exports (UP SSD Data, one file per district per month) for {meta.district} district
+        {meta.dateFrom ? `, ${fmt.date(meta.dateFrom)} to ${fmt.date(meta.dateTo)}` : ''} ({fmt.int(data.visits.length)} observations), and the NIPUN SSP
+        Adoption tracker for the school list and SSP adoption. There's no data for June (summer vacation). Last rebuilt {new Date(meta.generatedAt).toLocaleString('en-IN')}.
       </p>
 
       <h3>Counting</h3>
@@ -73,6 +74,25 @@ export default function About({ data }) {
         denominator. The assessment tracker counts only when it is filled regularly <i>and</i> children are grouped into A and B. There is no student learning-outcome data in
         this export. The "5 random students" field holds names only and is not published.
       </p>
+
+      <h3>School Support Programme (SSP)</h3>
+      <dl>
+        <dt>Adopted schools</dt>
+        <dd>
+          Schools marked as ARP-adopted in the NIPUN SSP Adoption tracker (about 10 per ARP). The "SSP schools only" switch limits every page to these
+          schools. Schools also adopted by a Project Officer are marked "PO".
+        </dd>
+        <dt>Own ARP</dt>
+        <dd>
+          The ARP who adopted the school. The tracker names ARPs in free text (spellings vary, some are initials or in Hindi), so each tracker name is
+          matched to an ARP in the visit data within the same block by name. If the name doesn't match, it goes to the ARP who made most of the visits
+          to those schools.
+        </dd>
+        <dt>Coverage</dt>
+        <dd>An adopted school counts as visited in a month if any mentor observed a class there; "by own ARP" needs a visit from the adopting ARP.</dd>
+        <dt>SSP Deep Dive</dt>
+        <dd>Starts from {meta.sspFrom ? meta.sspFrom.replace('-', ' / ') : 'April 2026'}. The period filter doesn't apply there; block, school type, grade and subject filters do.</dd>
+      </dl>
 
       <h3>Privacy</h3>
       <p>

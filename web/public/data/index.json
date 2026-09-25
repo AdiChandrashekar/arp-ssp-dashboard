@@ -1,0 +1,105 @@
+{
+ "generatedAt": "2026-09-25T15:11:09+00:00",
+ "districts": [
+  {
+   "slug": "agra",
+   "name": "Agra",
+   "file": "districts/agra.json",
+   "visits": 0,
+   "schools": 2576,
+   "sspSchools": 0,
+   "sspArps": 0,
+   "dateTo": null
+  },
+  {
+   "slug": "aligarh",
+   "name": "Aligarh",
+   "file": "districts/aligarh.json",
+   "visits": 0,
+   "schools": 2270,
+   "sspSchools": 610,
+   "sspArps": 58,
+   "dateTo": null
+  },
+  {
+   "slug": "basti",
+   "name": "Basti",
+   "file": "districts/basti.json",
+   "visits": 18115,
+   "schools": 2242,
+   "sspSchools": 696,
+   "sspArps": 69,
+   "dateTo": "2026-08-31"
+  },
+  {
+   "slug": "ghaziabad",
+   "name": "Ghaziabad",
+   "file": "districts/ghaziabad.json",
+   "visits": 0,
+   "schools": 522,
+   "sspSchools": 229,
+   "sspArps": 23,
+   "dateTo": null
+  },
+  {
+   "slug": "ghazipur",
+   "name": "Ghazipur",
+   "file": "districts/ghazipur.json",
+   "visits": 0,
+   "schools": 2495,
+   "sspSchools": 750,
+   "sspArps": 75,
+   "dateTo": null
+  },
+  {
+   "slug": "gorakhpur",
+   "name": "Gorakhpur",
+   "file": "districts/gorakhpur.json",
+   "visits": 0,
+   "schools": 2714,
+   "sspSchools": 749,
+   "sspArps": 75,
+   "dateTo": null
+  },
+  {
+   "slug": "jhansi",
+   "name": "Jhansi",
+   "file": "districts/jhansi.json",
+   "visits": 0,
+   "schools": 1519,
+   "sspSchools": 325,
+   "sspArps": 32,
+   "dateTo": null
+  },
+  {
+   "slug": "kanpur-nagar",
+   "name": "Kanpur Nagar",
+   "file": "districts/kanpur-nagar.json",
+   "visits": 0,
+   "schools": 1935,
+   "sspSchools": 430,
+   "sspArps": 43,
+   "dateTo": null
+  },
+  {
+   "slug": "moradabad",
+   "name": "Moradabad",
+   "file": "districts/moradabad.json",
+   "visits": 0,
+   "schools": 1518,
+   "sspSchools": 350,
+   "sspArps": 35,
+   "dateTo": null
+  },
+  {
+   "slug": "sitapur",
+   "name": "Sitapur",
+   "file": "districts/sitapur.json",
+   "visits": 0,
+   "schools": 3703,
+   "sspSchools": 870,
+   "sspArps": 88,
+   "dateTo": null
+  }
+ ]
+}

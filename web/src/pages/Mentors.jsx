@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { applyFilters, countBy, fmt, groupBy, mentorSummary, monthShort, monthsInPeriod, periodLabel, statusFor } from '../data.js'
+import { applyFilters, countBy, fmt, groupBy, mentorSummary, monthShort, monthsInPeriod, periodLabel, sspCoverage, statusFor } from '../data.js'
 import { Card, DataTable, Meter, Section, StatCard, Tabs } from '../components/ui.jsx'
 import { Heatmap } from '../components/charts.jsx'
 
@@ -10,19 +10,34 @@ export default function Mentors({ data, filters, nav, category }) {
   const feedbackIdx = data.kpiIndex.feedback
 
   const m = useMemo(() => {
-    const roster = data.mentors.filter((x) => (isArp ? x.category === 'ARP' : x.category !== 'ARP') && (!filters.block || x.block === filters.block))
+    const roster = data.mentors.filter(
+      (x) =>
+        (isArp ? x.category === 'ARP' : x.category !== 'ARP') &&
+        (!filters.block || x.block === filters.block) &&
+        (!filters.ssp || !isArp || data.adoptedBy.has(x.id)),
+    )
     const ids = new Set(roster.map((x) => x.id))
     const inPeriod = applyFilters(data.visits, filters).filter((v) => ids.has(v.mentor))
     const allTime = applyFilters(data.visits, filters, { period: false }).filter((v) => ids.has(v.mentor))
     const months = monthsInPeriod(data.months, filters)
     const periodTarget = target * months.length
     const byMentor = groupBy(inPeriod, (v) => v.mentor)
+    const cov = sspCoverage(data, applyFilters(data.visits, filters), { stype: filters.stype })
     const rows = roster.map((a) => {
       const vs = byMentor.get(a.id) || []
-      return { ...a, ...mentorSummary(vs, feedbackIdx), progress: periodTarget ? (vs.length / periodTarget) * 100 : null }
+      const c = cov.perArp.get(a.id)
+      return {
+        ...a,
+        ...mentorSummary(vs, feedbackIdx),
+        progress: periodTarget ? (vs.length / periodTarget) * 100 : null,
+        adopted: c?.adopted ?? 0,
+        adoptedVisited: c?.visited ?? 0,
+        adoptedOwn: c?.own ?? 0,
+        ownPct: c ? (c.own / c.adopted) * 100 : null,
+      }
     })
     const monthCounts = countBy(allTime, (v) => `${v.mentor}|${v.month}`)
-    return { roster, rows, inPeriod, periodTarget, monthCounts }
+    return { roster, rows, inPeriod, periodTarget, monthCounts, cov }
   }, [data, filters, isArp, target, feedbackIdx])
 
   const pl = periodLabel(filters)
@@ -36,7 +51,25 @@ export default function Mentors({ data, filters, nav, category }) {
     ...(!isArp ? [{ key: 'designation', label: 'Designation', value: (r) => r.designation }] : []),
     { key: 'block', label: 'Block', value: (r) => r.block },
     { key: 'visits', label: 'Visits', value: (r) => r.visits, align: 'right' },
-    ...(isArp
+    ...(isArp && filters.ssp
+      ? [
+          { key: 'adopted', label: 'Adopted', value: (r) => r.adopted, align: 'right' },
+          {
+            key: 'ownPct',
+            label: 'Adopted visited by self',
+            value: (r) => r.ownPct,
+            csv: (r) => `${r.adoptedOwn}/${r.adopted}`,
+            render: (r) => (
+              <span className="meter-cell">
+                <Meter value={r.ownPct} status={statusFor(r.ownPct, 100, 60)} />
+                <span className="num">{r.adoptedOwn} / {r.adopted}</span>
+              </span>
+            ),
+          },
+          { key: 'adoptedVisited', label: 'Visited by anyone', value: (r) => r.adoptedVisited, align: 'right', render: (r) => `${r.adoptedVisited} / ${r.adopted}` },
+        ]
+      : []),
+    ...(isArp && !filters.ssp
       ? [{
           key: 'progress',
           label: `vs target ${m.periodTarget}`,
@@ -65,13 +98,20 @@ export default function Mentors({ data, filters, nav, category }) {
       <div className="page-head">
         <div className="crumbs">Dashboard / {isArp ? 'ARP Visits' : 'DIET Mentors & SRGs'}</div>
         <h1>{isArp ? 'ARP visits' : 'DIET Mentor & SRG visits'} · {pl}</h1>
+        {filters.ssp && <div className="page-meta"><span className="pill pill-ssp">SSP schools only</span> <span className="muted">visits to ARP-adopted schools; ARPs who adopted schools</span></div>}
       </div>
 
       <div className="stats">
         <StatCard label={isArp ? 'ARPs on roster' : 'Mentors'} value={m.roster.length} sub={filters.block ? `${filters.block} block` : 'who appear in the data'} />
         <StatCard label="Active" value={`${active} / ${m.roster.length}`} sub={`${m.roster.length - active} with no visit in ${pl}`} />
         <StatCard label="Visits" value={fmt.int(m.inPeriod.length)} sub={`${fmt.num1(m.roster.length ? m.inPeriod.length / m.roster.length : null)} per ${isArp ? 'ARP' : 'mentor'}`} />
-        {isArp && (
+        {isArp && filters.ssp && (
+          <>
+            <StatCard label="Adopted schools visited by own ARP" value={`${m.cov.own} / ${m.cov.schools}`} sub={fmt.pct((m.cov.own / Math.max(1, m.cov.schools)) * 100)} status={statusFor((m.cov.own / Math.max(1, m.cov.schools)) * 100, 90, 70)} />
+            <StatCard label="ARPs who visited all their schools" value={`${m.cov.arpsFull} / ${m.cov.perArp.size}`} sub={`in ${pl}`} />
+          </>
+        )}
+        {isArp && !filters.ssp && (
           <>
             <StatCard label={`Met target (${m.periodTarget})`} value={`${meeting}`} sub={`${fmt.pct((meeting / Math.max(1, m.roster.length)) * 100)} of ARPs`} status={statusFor((meeting / Math.max(1, m.roster.length)) * 100, 80, 50)} />
             <StatCard label="Below half of target" value={`${below50}`} sub={`fewer than ${Math.ceil(m.periodTarget / 2)} visits`} status={below50 === 0 ? 'good' : below50 <= 5 ? 'warning' : 'critical'} />

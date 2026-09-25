@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { applyFilters, attendance, countBy, fmt, groupBy, kpiRate, mean, monthShort, monthLabel, monthsInPeriod, inPeriod, periodLabel, statusFor } from '../data.js'
+import { applyFilters, attendance, countBy, fmt, groupBy, kpiRate, mean, monthShort, monthLabel, monthsInPeriod, inPeriod, periodLabel, sspCoverage, statusFor } from '../data.js'
 import { Card, DataTable, Section, StatCard } from '../components/ui.jsx'
 import { BarList, ColumnChart, Heatmap } from '../components/charts.jsx'
 
@@ -13,14 +13,20 @@ export default function Overview({ data, filters, setFilters, nav }) {
     const months = monthsInPeriod(data.months, filters)
     const periodTarget = target * months.length
 
-    const roster = mentors.filter((x) => x.category === 'ARP' && (!filters.block || x.block === filters.block))
+    // With the SSP filter on, the roster is the ARPs who adopted schools.
+    const roster = mentors.filter(
+      (x) => x.category === 'ARP' && (!filters.block || x.block === filters.block) && (!filters.ssp || data.adoptedBy.has(x.id)),
+    )
     const rosterIds = new Set(roster.map((x) => x.id))
     const arpVisits = inPeriod.filter((v) => rosterIds.has(v.mentor))
     const perArp = countBy(arpVisits, (v) => v.mentor)
     const meeting = roster.filter((a) => (perArp.get(a.id) || 0) >= periodTarget).length
     const zero = roster.filter((a) => !perArp.get(a.id)).length
 
-    const schoolUniverse = schools.filter((s) => (!filters.block || s.block === filters.block) && (!filters.stype || s.type === filters.stype))
+    const schoolUniverse = schools.filter(
+      (s) => (!filters.block || s.block === filters.block) && (!filters.stype || s.type === filters.stype) && (!filters.ssp || s.ssp),
+    )
+    const ssp = sspCoverage(data, inPeriod, filters)
     const schoolsVisited = new Set(inPeriod.map((v) => v.school))
 
     // Monthly series (period filter ignored so the trend is always visible)
@@ -40,7 +46,7 @@ export default function Overview({ data, filters, setFilters, nav }) {
         const vs = byBlock.get(b) || []
         const bRoster = mentors.filter((x) => x.category === 'ARP' && x.block === b)
         const bPer = countBy(vs.filter((v) => bRoster.some((a) => a.id === v.mentor)), (v) => v.mentor)
-        const bSchools = schools.filter((s) => s.block === b && (!filters.stype || s.type === filters.stype)).length
+        const bSchools = schools.filter((s) => s.block === b && (!filters.stype || s.type === filters.stype) && (!filters.ssp || s.ssp)).length
         return {
           block: b,
           arps: bRoster.length,
@@ -62,7 +68,7 @@ export default function Overview({ data, filters, setFilters, nav }) {
 
     return {
       inPeriod, months, periodTarget, roster, arpVisits, perArp, meeting, zero,
-      schoolUniverse, schoolsVisited, monthly, blockRows, gs, stypes,
+      schoolUniverse, schoolsVisited, monthly, blockRows, gs, stypes, ssp,
       fln: mean(inPeriod.map((v) => v.flnScore)),
       up: mean(inPeriod.map((v) => v.upScore)),
       lpReady: kpiRate(inPeriod, data.kpiIndex.lp_ready).pct,
@@ -87,22 +93,37 @@ export default function Overview({ data, filters, setFilters, nav }) {
       </div>
 
       <div className="narrative">
+        {filters.ssp && <span className="pill pill-ssp">SSP schools only</span>}{' '}
         <strong>{fmt.int(m.inPeriod.length)}</strong> classroom visits {inPeriod(filters)}
-        {m.inPeriod.length > 0 && (
+        {filters.ssp ? (
+          <>
+            {' '}to SSP-adopted schools. <strong>{m.ssp.visited} of {m.ssp.schools}</strong> adopted schools got a visit, {m.ssp.own} of them from the ARP
+            who adopted them. {m.ssp.arpsFull} of {m.ssp.perArp.size} ARPs visited every school they adopted.
+          </>
+        ) : m.inPeriod.length > 0 && (
           <>
             , {fmt.int(m.arpVisits.length)} of them by ARPs. <strong>{m.meeting} of {m.roster.length}</strong> ARPs reached the target of{' '}
             {m.periodTarget} visits{m.months.length > 1 ? ` (${target} × ${m.months.length} months)` : ''}; {m.zero} made no visit.
             {' '}{fmt.int(m.schoolsVisited.size)} of {fmt.int(m.schoolUniverse.length)} schools were visited.
           </>
         )}
-        {hasFilters && <span className="muted"> ARP target counts use only the visits matching the school type / grade / subject filters.</span>}
+        {hasFilters && !filters.ssp && <span className="muted"> ARP target counts use only the visits matching the school type / grade / subject filters.</span>}
       </div>
 
       <div className="stats">
         <StatCard label="Total visits" value={fmt.int(m.inPeriod.length)} sub={`${fmt.int(m.arpVisits.length)} by ARPs · ${fmt.int(m.inPeriod.length - m.arpVisits.length)} by DIET/SRG`} />
         <StatCard label="Active ARPs" value={`${active} / ${m.roster.length}`} sub={`${m.zero} ARPs with no visit`} status={statusFor(m.roster.length ? (active / m.roster.length) * 100 : null, 95, 80)} />
-        <StatCard label={`ARPs meeting target (${m.periodTarget})`} value={fmt.pct(meetingPct)} sub={`${m.meeting} of ${m.roster.length} ARPs`} status={statusFor(meetingPct, 80, 50)} onClick={() => nav('arps')} />
-        <StatCard label="Visits per ARP" value={fmt.num1(avgPerArp)} sub={`target ${m.periodTarget} in ${pl}`} status={statusFor(avgPerArp == null ? null : (avgPerArp / m.periodTarget) * 100, 100, 75)} />
+        {filters.ssp ? (
+          <>
+            <StatCard label="Adopted schools visited" value={`${m.ssp.visited} / ${m.ssp.schools}`} sub={`${fmt.pct((m.ssp.visited / Math.max(1, m.ssp.schools)) * 100)} got at least one visit`} status={statusFor((m.ssp.visited / Math.max(1, m.ssp.schools)) * 100, 90, 70)} onClick={() => nav('ssp')} />
+            <StatCard label="Visited by own ARP" value={`${m.ssp.own} / ${m.ssp.schools}`} sub={`${fmt.pct((m.ssp.own / Math.max(1, m.ssp.schools)) * 100)} by the ARP who adopted them`} status={statusFor((m.ssp.own / Math.max(1, m.ssp.schools)) * 100, 90, 70)} onClick={() => nav('ssp')} />
+          </>
+        ) : (
+          <>
+            <StatCard label={`ARPs meeting target (${m.periodTarget})`} value={fmt.pct(meetingPct)} sub={`${m.meeting} of ${m.roster.length} ARPs`} status={statusFor(meetingPct, 80, 50)} onClick={() => nav('arps')} />
+            <StatCard label="Visits per ARP" value={fmt.num1(avgPerArp)} sub={`target ${m.periodTarget} in ${pl}`} status={statusFor(avgPerArp == null ? null : (avgPerArp / m.periodTarget) * 100, 100, 75)} />
+          </>
+        )}
         <StatCard label="Schools visited" value={`${fmt.int(m.schoolsVisited.size)}`} sub={`of ${fmt.int(m.schoolUniverse.length)} schools (${fmt.pct((m.schoolsVisited.size / Math.max(1, m.schoolUniverse.length)) * 100)})`} onClick={() => nav('schools')} />
         <StatCard label="FLN practice score" value={fmt.pct(m.fln)} sub="Grades 1-3 Hindi & Maths classrooms" status={statusFor(m.fln, 80, 65)} onClick={() => nav('kpis')} />
         <StatCard label="Gr 4-8 lesson plan ready" value={fmt.pct(m.lpReady)} sub={`practice score ${fmt.pct(m.up)} in classes with a plan`} status={statusFor(m.lpReady, 85, 70)} onClick={() => nav('kpis')} />
@@ -129,7 +150,7 @@ export default function Overview({ data, filters, setFilters, nav }) {
             onSelect={(mo) => setFilters({ ptype: 'month', pval: mo })}
           />
         </Card>
-        <Card title="Visits per active ARP" sub={`Average per ARP who made at least one visit · target ${target}`}>
+        <Card title="Visits per active ARP" sub={filters.ssp ? 'Average SSP-school visits per ARP who made one' : `Average per ARP who made at least one visit · target ${target}`}>
           <ColumnChart
             data={m.monthly.map((d) => ({
               key: d.mo,
@@ -143,7 +164,7 @@ export default function Overview({ data, filters, setFilters, nav }) {
                 </>
               ),
             }))}
-            reference={{ value: target, label: `Target ${target}` }}
+            reference={filters.ssp ? undefined : { value: target, label: `Target ${target}` }}
             valueFormat={(v) => fmt.int(v)}
             selectedKey={filters.ptype === 'month' ? filters.pval : null}
             onSelect={(mo) => setFilters({ ptype: 'month', pval: mo })}

@@ -117,6 +117,119 @@ export function ColumnChart({ data, height = 220, reference, valueFormat = (v) =
   )
 }
 
+// Categorical slots from the reference palette, in fixed order (never cycled).
+export const SERIES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100']
+
+/**
+ * Lines over a shared x axis (months). One y scale only.
+ * xs: [{ key, label }], series: [{ key, label, values: [number|null], color? }]
+ */
+export function LineChart({ xs, series, height = 230, yMax = 100, valueFormat = (v) => `${Math.round(v)}%`, onSelect, selectedKey }) {
+  const [ref, width] = useWidth()
+  const [hover, setHover] = useState(null)
+  const pad = { l: 40, r: 96, t: 14, b: 28 }
+  const plotW = width - pad.l - pad.r
+  const plotH = height - pad.t - pad.b
+  const max = yMax ?? niceMax(Math.max(1, ...series.flatMap((s) => s.values.filter((v) => v != null))))
+  const x = (i) => pad.l + (xs.length === 1 ? plotW / 2 : (plotW * i) / (xs.length - 1))
+  const y = (v) => pad.t + plotH - (v / max) * plotH
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => t * max)
+  const colorOf = (s, i) => s.color || SERIES[i]
+
+  const path = (vals) => {
+    let d = ''
+    let pen = false
+    vals.forEach((v, i) => {
+      if (v == null) {
+        pen = false
+        return
+      }
+      d += `${pen ? 'L' : 'M'}${x(i)},${y(v)} `
+      pen = true
+    })
+    return d
+  }
+
+  // End labels, nudged apart so they never overlap.
+  const ends = series
+    .map((s, i) => {
+      let j = s.values.length - 1
+      while (j >= 0 && s.values[j] == null) j--
+      return j < 0 ? null : { i, s, y: y(s.values[j]), v: s.values[j] }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.y - b.y)
+  for (let k = 1; k < ends.length; k++) if (ends[k].y - ends[k - 1].y < 14) ends[k].y = ends[k - 1].y + 14
+
+  return (
+    <div className="chart" ref={ref} onMouseLeave={() => setHover(null)}>
+      <div className="legend">
+        {series.map((s, i) => (
+          <span key={s.key} className="legend-item">
+            <span className="legend-swatch" style={{ background: colorOf(s, i) }} />
+            {s.label}
+          </span>
+        ))}
+      </div>
+      <svg width={width} height={height} role="img" aria-label="Line chart">
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={pad.l} x2={width - pad.r} y1={y(t)} y2={y(t)} className={t === 0 ? 'axis' : 'grid'} />
+            <text x={pad.l - 6} y={y(t)} className="tick" textAnchor="end" dominantBaseline="middle">
+              {valueFormat(t)}
+            </text>
+          </g>
+        ))}
+        {xs.map((xv, i) => (
+          <text key={xv.key} x={x(i)} y={height - 8} className={`tick${selectedKey === xv.key ? ' tick-selected' : ''}`} textAnchor="middle">
+            {xv.label}
+          </text>
+        ))}
+        {hover != null && <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + plotH} className="crosshair" />}
+        {series.map((s, i) => (
+          <g key={s.key}>
+            <path d={path(s.values)} fill="none" stroke={colorOf(s, i)} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+            {s.values.map((v, j) =>
+              v == null ? null : (
+                <circle key={j} cx={x(j)} cy={y(v)} r={hover === j ? 5 : 4} fill={colorOf(s, i)} stroke="var(--surface)" strokeWidth="2" />
+              ),
+            )}
+          </g>
+        ))}
+        {ends.map((e) => (
+          <text key={e.s.key} x={width - pad.r + 8} y={e.y} className="end-label" dominantBaseline="middle">
+            {valueFormat(e.v)} {e.s.short || ''}
+          </text>
+        ))}
+        {xs.map((xv, i) => (
+          <rect
+            key={xv.key}
+            x={x(i) - plotW / Math.max(2, xs.length - 1) / 2}
+            y={pad.t}
+            width={plotW / Math.max(1, xs.length - 1)}
+            height={plotH}
+            fill="transparent"
+            style={{ cursor: onSelect ? 'pointer' : 'default' }}
+            onMouseEnter={() => setHover(i)}
+            onClick={onSelect ? () => onSelect(xv.key) : undefined}
+          />
+        ))}
+      </svg>
+      {hover != null && (
+        <div className="tooltip" style={{ left: Math.min(x(hover) + 12, width - 180), top: pad.t }}>
+          <b>{xs[hover].label}</b>
+          {series.map((s, i) => (
+            <div key={s.key}>
+              <span className="legend-swatch" style={{ background: colorOf(s, i) }} /> {s.label}: {s.values[hover] == null ? '—' : valueFormat(s.values[hover])}
+              {s.notes?.[hover] ? <span className="muted"> {s.notes[hover]}</span> : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /**
  * Horizontal bars as HTML rows: label | bar | value. data: [{ key, label, value, max?, sub?, tip? }]
  */

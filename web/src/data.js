@@ -1,13 +1,31 @@
-// Loads dashboard.json (built by etl/build.py) and provides the shared
-// filtering and aggregation logic every page uses.
+// Loads the district data built by etl/build.py (index.json + one file per
+// district) and provides the shared filtering and aggregation logic every page uses.
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-export async function loadData() {
-  // no-cache: revalidate every load so a monthly data refresh shows up immediately
-  const res = await fetch('data/dashboard.json', { cache: 'no-cache' })
-  if (!res.ok) throw new Error(`Could not load data (${res.status})`)
-  return decode(await res.json())
+// no-cache: revalidate every load so a data refresh shows up immediately
+async function getJson(path) {
+  const res = await fetch(path, { cache: 'no-cache' })
+  if (!res.ok) throw new Error(`Could not load ${path} (${res.status})`)
+  return res.json()
+}
+
+export function loadIndex() {
+  return getJson('data/index.json')
+}
+
+const districtCache = new Map()
+export function loadDistrict(entry) {
+  if (!districtCache.has(entry.slug)) {
+    districtCache.set(
+      entry.slug,
+      getJson(`data/${entry.file}`).then(decode, (e) => {
+        districtCache.delete(entry.slug)
+        throw e
+      }),
+    )
+  }
+  return districtCache.get(entry.slug)
 }
 
 function decode(raw) {
@@ -29,6 +47,9 @@ function decode(raw) {
       school: r[f.school],
       block: school.block,
       stype: school.type,
+      ssp: !!school.ssp,
+      // visit made by the ARP who adopted this school under SSP
+      ownArp: !!school.ssp && school.sspArp === r[f.mentor],
       grade: r[f.grade],
       subject,
       form: r[f.form],
@@ -50,7 +71,15 @@ function decode(raw) {
 
   const months = [...new Set(visits.map((v) => v.month))].sort()
   const blocks = [...new Set(schools.map((s) => s.block))].sort()
-  return { meta, mentors, schools, visits, months, blocks, kpiIndex }
+  const sspSchools = schools.filter((s) => s.ssp)
+  // adopting ARP (mentor id) -> their adopted schools
+  const adoptedBy = new Map()
+  for (const s of sspSchools) {
+    if (s.sspArp == null) continue
+    if (!adoptedBy.has(s.sspArp)) adoptedBy.set(s.sspArp, [])
+    adoptedBy.get(s.sspArp).push(s)
+  }
+  return { meta, mentors, schools, visits, months, blocks, kpiIndex, sspSchools, adoptedBy }
 }
 
 // Share of applicable KPIs answered "yes", 0-100. null if none applied.
@@ -132,6 +161,7 @@ export const DEFAULT_FILTERS = {
   stype: '',
   grade: '',
   subject: '',
+  ssp: '',
 }
 
 export function applyFilters(visits, filters, { period = true } = {}) {
@@ -141,6 +171,7 @@ export function applyFilters(visits, filters, { period = true } = {}) {
     if (filters.stype && v.stype !== filters.stype) return false
     if (filters.grade && !gradeMatches(v.grade, filters.grade)) return false
     if (filters.subject && v.subject !== filters.subject) return false
+    if (filters.ssp && !v.ssp) return false
     return true
   })
 }
@@ -221,6 +252,42 @@ export function mentorSummary(visits, feedbackIdx) {
     upScore: mean(visits.map((v) => v.upScore)),
     feedback: kpiRate(fln, feedbackIdx).pct,
     lastDate: visits.reduce((a, v) => (v.date > a ? v.date : a), ''),
+  }
+}
+
+// ---------- SSP (School Support Programme) ----------
+
+/**
+ * Adopted-school coverage in a set of visits (already period/grade/subject filtered).
+ * Returns totals plus a per-ARP breakdown: adopted schools, how many got any
+ * visit, and how many were visited by the ARP who adopted them.
+ */
+export function sspCoverage(data, visits, { block = '', stype = '' } = {}) {
+  const inScope = (s) => (!block || s.block === block) && (!stype || s.type === stype)
+  const anyVisit = new Set()
+  const ownVisit = new Set()
+  for (const v of visits) {
+    if (!v.ssp) continue
+    anyVisit.add(v.school)
+    if (v.ownArp) ownVisit.add(v.school)
+  }
+  const perArp = new Map()
+  for (const [arp, list] of data.adoptedBy) {
+    const adopted = list.filter(inScope)
+    if (!adopted.length) continue
+    perArp.set(arp, {
+      adopted: adopted.length,
+      visited: adopted.filter((s) => anyVisit.has(s.id)).length,
+      own: adopted.filter((s) => ownVisit.has(s.id)).length,
+    })
+  }
+  const schools = data.sspSchools.filter(inScope)
+  return {
+    schools: schools.length,
+    visited: schools.filter((s) => anyVisit.has(s.id)).length,
+    own: schools.filter((s) => ownVisit.has(s.id)).length,
+    perArp,
+    arpsFull: [...perArp.values()].filter((p) => p.own === p.adopted).length,
   }
 }
 

@@ -11,6 +11,7 @@ compact JSON for the web app. Personal data not needed by the dashboard
 is dropped here and never reaches the published files.
 """
 
+import difflib
 import glob
 import json
 import os
@@ -24,6 +25,7 @@ import pandas as pd
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW_DIR = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "data", "raw")
 OUT_DIR = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "web", "public", "data")
+TRACKER = os.environ.get("SSP_TRACKER", os.path.join(ROOT, "data", "ssp", "tracker.xlsx"))
 
 def norm(s):
     return re.sub(r"\s+", " ", unicodedata.normalize("NFC", str(s))).strip()
@@ -255,38 +257,209 @@ def title(name):
     return " ".join(w.capitalize() for w in name.split())
 
 
-def main():
-    files = sorted(glob.glob(os.path.join(RAW_DIR, "*.xlsx")))
-    if not files:
-        raise SystemExit(f"No .xlsx files in {RAW_DIR}")
+def district_key(name):
+    """'KANPUR NAGAR', 'Kanpur Nagar', 'KANPUR_NAGAR' -> 'KANPURNAGAR'."""
+    return re.sub(r"[^A-Z]", "", str(name).upper())
 
+
+def slug(name):
+    return re.sub(r"[^a-z]+", "-", str(name).lower()).strip("-")
+
+
+def norm_udise(v):
+    if not isinstance(v, str):
+        return None
+    s = re.sub(r"\.0$", "", v.strip())
+    return s.zfill(11) if s.isdigit() else None
+
+
+_DEV_VOWELS = dict(zip("अआइईउऊएऐओऔऋ", ["a", "a", "i", "i", "u", "u", "e", "ai", "o", "au", "ri"]))
+_DEV_MATRAS = dict(zip("ािीुूेैोौृ", ["a", "i", "i", "u", "u", "e", "ai", "o", "au", "ri"]))
+_DEV_CONS = dict(zip("कखगघङचछजझञटठडढणतथदधनपफबभमयरलवशषसह",
+                     "k kh g gh n ch chh j jh n t th d dh n t th d dh n p ph b bh m y r l v sh sh s h".split()))
+
+
+def devanagari_to_latin(s):
+    """Rough transliteration, good enough to match 'गरिमा त्रिपाठी' to 'Garima Tripathi'."""
+    out = []
+    for i, ch in enumerate(s):
+        nxt = s[i + 1] if i + 1 < len(s) else ""
+        if ch in _DEV_CONS:
+            out.append(_DEV_CONS[ch])
+            # inherent 'a' unless a vowel sign / virama follows, or the word ends (schwa deletion)
+            if nxt not in _DEV_MATRAS and nxt not in "़्" and nxt.strip() and nxt in _DEV_CONS.keys() | _DEV_VOWELS.keys() | {"ं", "ँ"}:
+                out.append("a")
+        elif ch in _DEV_MATRAS:
+            out.append(_DEV_MATRAS[ch])
+        elif ch in _DEV_VOWELS:
+            out.append(_DEV_VOWELS[ch])
+        elif ch in "ंँ":
+            out.append("n")
+        elif ch == "ः":
+            out.append("h")
+        elif ch in "़्":
+            continue
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def norm_person(name):
+    s = devanagari_to_latin(str(name)).lower()
+    s = re.sub(r"\b(dr|mr|mrs|ms|shri|smt)\b\.?", " ", s)
+    s = " ".join(re.sub(r"[^a-z ]", " ", s).split())
+    # collapse common spelling variants: aa/a, ee/i, oo/u, w/v
+    for a, b in (("aa", "a"), ("ee", "i"), ("oo", "u"), ("w", "v")):
+        s = s.replace(a, b)
+    return s
+
+
+def load_tracker(path):
+    """SSP adoption tracker -> {district_key: {"name", "schools": {udise: {...}}}}.
+
+    Sheet "SSP Adoption" lists every school in UP with adoption flags; one sheet
+    per programme district names the ARP who adopted each school. The districts
+    in scope are the ones with their own sheet.
+    """
+    xl = pd.ExcelFile(path)
+    master = pd.read_excel(xl, "SSP Adoption", dtype=str)
+    master["u"] = master["udise_code"].map(norm_udise)
+    master["dk"] = master["district"].map(district_key)
+    districts = {}
+    for sheet in xl.sheet_names:
+        if sheet in ("SSP Adoption", "Mentor_All"):
+            continue
+        dk = district_key(sheet)
+        adopted = pd.read_excel(xl, sheet, dtype=str, usecols=range(4))
+        adopted.columns = ["udise_code", "school_name", "mentor_name", "block"]
+        adopted = adopted.dropna(subset=["udise_code"])
+        adopted["u"] = adopted["udise_code"].map(norm_udise)
+        arp_of = {r.u: clean_str(r.mentor_name) for r in adopted.itertuples() if isinstance(r.u, str)}
+        schools = {}
+        for r in master[master["dk"] == dk].itertuples():
+            if not isinstance(r.u, str):
+                continue
+            schools[r.u] = dict(
+                name=title(clean_str(r.school_name) or r.u),
+                block=clean_str(r.block),
+                ssp=1 if (r.mentor_ssp_adopted == "Yes" or r.u in arp_of) else 0,
+                po=1 if r.is_po_ssp_adopted == "Yes" else 0,
+                sspArpName=title(arp_of[r.u]) if arp_of.get(r.u) else None,
+            )
+        # adopted schools missing from the master list still count
+        for r in adopted.itertuples():
+            if isinstance(r.u, str) and r.u not in schools:
+                schools[r.u] = dict(name=title(clean_str(r.school_name) or r.u), block=clean_str(r.block),
+                                    ssp=1, po=0, sspArpName=title(arp_of[r.u]) if arp_of.get(r.u) else None)
+        districts[dk] = dict(name=title(sheet.strip()), schools=schools)
+        print(f"  tracker {sheet}: {len(schools)} schools, {sum(s['ssp'] for s in schools.values())} ARP-adopted")
+    return districts
+
+
+def match_mentor(name, candidates, fuzzy=True):
+    """Match a tracker ARP name to a mentor id from the visit data. candidates: {id: name}."""
+    if not name:
+        return None
+    target = norm_person(name)
+    normed = {i: norm_person(n) for i, n in candidates.items()}
+    exact = [i for i, n in normed.items() if n == target]
+    if len(exact) == 1:
+        return exact[0]
+    tset = set(target.split())
+    subset = [i for i, n in normed.items() if tset and (tset <= set(n.split()) or set(n.split()) <= tset)]
+    if len(subset) == 1:
+        return subset[0]
+    if not fuzzy:
+        return None
+    best, best_score = None, 0
+    for i, n in normed.items():
+        sc = difflib.SequenceMatcher(None, target, n).ratio()
+        if sc > best_score:
+            best, best_score = i, sc
+    return best if best_score >= 0.85 else None
+
+
+def read_exports(raw_dir):
+    """Every .xlsx / .csv under raw_dir, in any folder layout (e.g. 2026/Aug 2026/BASTI.xlsx)."""
+    files = sorted(glob.glob(os.path.join(raw_dir, "**", "*.xlsx"), recursive=True)
+                   + glob.glob(os.path.join(raw_dir, "**", "*.csv"), recursive=True))
+    if not files:
+        raise SystemExit(f"No .xlsx or .csv exports under {raw_dir}")
     frames = []
     for f in files:
-        d = pd.read_excel(f, dtype=str, header=None)
-        headers = list(d.iloc[0])
-        check_headers(headers, os.path.basename(f))
-        d = d.iloc[1:].reset_index(drop=True)
-        d["_file"] = os.path.basename(f)
-        frames.append(d)
-        print(f"  {os.path.basename(f)}: {len(d)} rows")
+        name = os.path.relpath(f, raw_dir)
+        if f.endswith(".csv"):
+            d = pd.read_csv(f, dtype=str, header=None, encoding="utf-8-sig")
+        else:
+            d = pd.read_excel(f, dtype=str, header=None)
+        if len(d) < 2:
+            continue
+        check_headers(list(d.iloc[0]), name)
+        frames.append(d.iloc[1:, :208].reset_index(drop=True))
     raw = pd.concat(frames, ignore_index=True)
+    print(f"  read {len(files)} files, {len(raw)} rows")
     raw = raw.map(clean_str)
-    raw = raw.astype(object).where(raw.notna(), None)  # blanks as None, not NaN
+    return raw.astype(object).where(raw.notna(), None)  # blanks as None, not NaN
+
+
+def match_adopting_arps(schools, mentors, visit_udise, visit_mentor):
+    """Set school["sspArp"] (a mentor id) for every adopted school.
+
+    The tracker names each school's ARP in free text: spellings vary, some are
+    initials or in Hindi, and two different ARPs can share a name in different
+    blocks. So an adopting ARP is identified by (name, block), and matched by:
+      1. exact / near-exact name among the ARPs working in that block,
+      2. else whoever made most (>= 50%, >= 3) of the ARP visits to those schools,
+      3. else a fuzzy name match anywhere in the district, if that ARP visited
+         at least one of the schools.
+    """
+    arps = [m for m in mentors if m["category"] == "ARP"]
+    bkey = lambda b: re.sub(r"\W", "", str(b or "").lower())
+    visits = pd.DataFrame({"u": visit_udise, "m": visit_mentor})
+    visits = visits[visits["m"].isin({m["id"] for m in arps})]
+    groups = {}
+    for s in schools:
+        if s.get("ssp") and s.get("sspArpName"):
+            groups.setdefault((s["sspArpName"], bkey(s["block"])), []).append(s)
+    claimed = {}
+    for (name, blk), group in sorted(groups.items()):
+        adopted = {s["udise"] for s in group}
+        counts = visits[visits["u"].isin(adopted)]["m"].value_counts()
+        in_block = {m["id"]: m["name"] for m in arps if bkey(m["block"]) == blk}
+        mid, how = match_mentor(name, in_block, fuzzy=False), "name"
+        if mid is None and len(counts) and counts.iat[0] >= 3 and counts.iat[0] / counts.sum() >= 0.5:
+            mid, how = int(counts.index[0]), f"visits {counts.iat[0]}/{counts.sum()}"
+        if mid is None:
+            cand = match_mentor(name, {m["id"]: m["name"] for m in arps})
+            if cand is not None and cand in counts.index:
+                mid, how = cand, "fuzzy name + visits"
+        if mid is None:
+            print(f"    WARNING: adopting ARP '{name}' ({group[0]['block']}) not found in visit data")
+            continue
+        for s in group:
+            s["sspArp"] = mid
+        if how != "name":
+            print(f"    matched '{name}' ({group[0]['block']}) -> '{mentors[mid]['name']}' by {how}")
+        claimed.setdefault(mid, []).append(name)
+    for mid, names in claimed.items():
+        if len(names) > 1:
+            print(f"    NOTE: {names} all matched to '{mentors[mid]['name']}' - check the tracker")
+
+
+def build_district(raw, tracked):
+    """One district's visits + its tracker schools -> the district payload."""
 
     def col(key):
         return raw[COL[key][0]]
 
-    # Several monthly exports repeat rows at month boundaries; drop exact duplicates.
-    before = len(raw)
-    raw = raw.drop_duplicates(subset=[c for c in raw.columns if c not in ("_file", 0)]).reset_index(drop=True)
-    if len(raw) != before:
-        print(f"  dropped {before - len(raw)} duplicate rows")
+    # Monthly exports can repeat rows at month boundaries; drop exact duplicates (ignoring S.No.).
+    raw = raw.drop_duplicates(subset=[c for c in raw.columns if c != 0]).reset_index(drop=True)
 
     udise = col("udise").fillna("").str.zfill(11)  # some exports lost the leading zero
     dates = pd.to_datetime(col("date"), format="%d/%m/%Y", errors="coerce")
-    bad = dates.isna().sum()
+    bad = int(dates.isna().sum())
     if bad:
-        print(f"  WARNING: {bad} rows with unparseable dates dropped")
+        print(f"    WARNING: {bad} rows with unparseable dates dropped")
 
     form = pd.Series("O", index=raw.index)  # grade 1-3 other subjects, or unknown
     form[raw[COL["fln_math_marker"][0]].notna()] = "FM"
@@ -311,17 +484,34 @@ def main():
             block=g["block"].mode().iat[0],
         ))
 
-    # ---- Schools: keyed by UDISE ----
-    school_rows = pd.DataFrame({"u": udise, "name": col("school"), "block": col("block"), "type": col("stype"), "area": col("area")})
+    # ---- Schools: every tracker school in the district, plus any other visited school ----
+    visited = pd.DataFrame({"u": udise, "name": col("school"), "block": col("block"), "type": col("stype"), "area": col("area")})
+    visit_info = {}
+    for u, g in visited.groupby("u"):
+        t = g["type"].mode()
+        visit_info[u] = dict(
+            name=title(g["name"].mode().iat[0]), block=g["block"].mode().iat[0],
+            type={"PS": "PS", "Ups": "UPS", "Composite": "Composite"}.get(t.iat[0], t.iat[0]) if len(t) else None,
+            area="Urban" if g["area"].mode().iat[0] == "U" else "Rural",
+        )
+    # Tracker block spellings differ in case/spacing; map them onto the visit data's spelling.
+    block_names = {re.sub(r"\W", "", b.lower()): b for b in visited["block"].dropna().unique()}
+
     schools = []
     school_id = {}
-    for i, (u, g) in enumerate(sorted(school_rows.groupby("u"), key=lambda x: x[0])):
+    for i, u in enumerate(sorted(set(visit_info) | set(tracked))):
+        v, t = visit_info.get(u), tracked.get(u, {})
+        tb = t.get("block") or ""
+        block = v["block"] if v else block_names.get(re.sub(r"\W", "", tb.lower()), title(tb or "Unknown"))
+        s = dict(id=i, udise=u, name=v["name"] if v else t.get("name", u), block=block,
+                 type=v["type"] if v else None, area=v["area"] if v else None,
+                 ssp=t.get("ssp", 0), po=t.get("po", 0))
+        if s["ssp"]:
+            s["sspArpName"] = t.get("sspArpName")
+            s["sspArp"] = None
         school_id[u] = i
-        schools.append(dict(
-            id=i, udise=u, name=title(g["name"].mode().iat[0]), block=g["block"].mode().iat[0],
-            type={"PS": "PS", "Ups": "UPS", "Composite": "Composite"}.get(g["type"].mode().iat[0], g["type"].mode().iat[0]),
-            area="Urban" if g["area"].mode().iat[0] == "U" else "Rural",
-        ))
+        schools.append(s)
+    match_adopting_arps(schools, mentors, udise, mob.map(mentor_id))
 
     # ---- KPI values per observation ----
     kpi_vals = {}
@@ -333,12 +523,6 @@ def main():
         kpi_vals[k["id"]] = vals
 
     subj_codes = list(SUBJECTS.values())
-    # Compact row layout: teacher names are interned into a list, and all KPI
-    # answers for a visit are packed into one string ("1" yes, "0" no, "-" n/a)
-    # in the order of meta.kpis.
-    visit_fields = ["date", "mentor", "school", "grade", "subject", "form", "minutes",
-                    "cls_enr", "cls_pres", "stu_enr", "stu_pres", "tch_pos", "tch_pres", "cwsn_enr", "cwsn_pres",
-                    "teacher", "kpis"]
     teachers, teacher_id = [], {}
     visits = []
     for idx in raw.index:
@@ -354,7 +538,7 @@ def main():
                 teachers.append(tname)
         kpi_str = "".join(kpi_char(kpi_vals[k["id"]][idx]) for k in KPIS)
         assert len(kpi_str) == len(KPIS)
-        row = [
+        visits.append([
             dates[idx].strftime("%Y-%m-%d"),
             mentor_id[mob[idx]],
             school_id[udise[idx]],
@@ -366,31 +550,74 @@ def main():
              ["cls_enr", "cls_pres", "stu_enr", "stu_pres", "tch_pos", "tch_pres", "cwsn_enr", "cwsn_pres"]] + [
             teacher_id[tname] if tname else None,
             kpi_str,
-        ]
-        visits.append(row)
+        ])
     visits.sort(key=lambda r: (r[0], r[1]))
+    return dict(mentors=mentors, schools=schools, teachers=teachers, visits=visits)
 
-    meta = dict(
-        generatedAt=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        district=title(col("district").mode().iat[0]),
-        sourceFiles=[os.path.basename(f) for f in files],
-        dateFrom=visits[0][0],
-        dateTo=visits[-1][0],
-        arpMonthlyTarget=30,
-        subjects=subj_codes,
-        forms={"FM": "FLN Maths (Gr 1-3)", "FH": "FLN Hindi (Gr 1-3)", "G": "Grades 4-8", "O": "Gr 1-3 other subjects"},
-        kpis=[dict(id=k["id"], group=k["group"], label=k["label"], forms=list(k["cols"].keys()),
-                   inScore=k["group"] in ("fln", "upper") and k["id"] not in SCORE_EXCLUDE) for k in KPIS],
-        visitFields=visit_fields,
-    )
 
-    os.makedirs(OUT_DIR, exist_ok=True)
-    payload = dict(meta=meta, mentors=mentors, schools=schools, teachers=teachers, visits=visits)
-    out = os.path.join(OUT_DIR, "dashboard.json")
-    with open(out, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, ensure_ascii=False, separators=(",", ":"))
-    print(f"Wrote {out}: {len(visits)} visits, {len(mentors)} mentors, {len(schools)} schools, "
-          f"{os.path.getsize(out) / 1e6:.1f} MB")
+# Compact row layout: teacher names are interned into a list, and all KPI
+# answers for a visit are packed into one string ("1" yes, "0" no, "-" n/a)
+# in the order of meta.kpis.
+VISIT_FIELDS = ["date", "mentor", "school", "grade", "subject", "form", "minutes",
+                "cls_enr", "cls_pres", "stu_enr", "stu_pres", "tch_pos", "tch_pres", "cwsn_enr", "cwsn_pres",
+                "teacher", "kpis"]
+
+
+def main():
+    tracker = load_tracker(TRACKER) if os.path.exists(TRACKER) else {}
+    if not tracker:
+        print(f"  WARNING: no SSP tracker at {TRACKER}; building every district without SSP data")
+    raw = read_exports(RAW_DIR)
+    dkeys = raw[COL["district"][0]].map(district_key)
+
+    wanted = list(tracker) if tracker else sorted(dkeys.dropna().unique())
+    out_dir = os.path.join(OUT_DIR, "districts")
+    os.makedirs(out_dir, exist_ok=True)
+    generated = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    index = []
+    for dk in wanted:
+        part = raw[dkeys == dk].reset_index(drop=True)
+        tracked = tracker[dk]["schools"] if dk in tracker else {}
+        name = tracker[dk]["name"] if dk in tracker else title(part[COL["district"][0]].mode().iat[0])
+        print(f"  {name}: {len(part)} rows")
+        if len(part):
+            built = build_district(part, tracked)
+        else:  # no visit data yet: still publish the school list
+            built = dict(mentors=[], teachers=[], visits=[], schools=[
+                dict(id=i, udise=u, name=t["name"], block=title(t["block"] or "Unknown"), type=None, area=None,
+                     ssp=t["ssp"], po=t["po"], **({"sspArpName": t["sspArpName"], "sspArp": None} if t["ssp"] else {}))
+                for i, (u, t) in enumerate(sorted(tracked.items()))])
+        v = built["visits"]
+        meta = dict(
+            generatedAt=generated,
+            district=name,
+            dateFrom=v[0][0] if v else None,
+            dateTo=v[-1][0] if v else None,
+            arpMonthlyTarget=30,
+            sspFrom="2026-04",
+            subjects=list(SUBJECTS.values()),
+            forms={"FM": "FLN Maths (Gr 1-3)", "FH": "FLN Hindi (Gr 1-3)", "G": "Grades 4-8", "O": "Gr 1-3 other subjects"},
+            kpis=[dict(id=k["id"], group=k["group"], label=k["label"], forms=list(k["cols"].keys()),
+                       inScore=k["group"] in ("fln", "upper") and k["id"] not in SCORE_EXCLUDE) for k in KPIS],
+            visitFields=VISIT_FIELDS,
+        )
+        fname = f"{slug(name)}.json"
+        with open(os.path.join(out_dir, fname), "w", encoding="utf-8") as fh:
+            json.dump(dict(meta=meta, **built), fh, ensure_ascii=False, separators=(",", ":"))
+        ssp = [s for s in built["schools"] if s.get("ssp")]
+        index.append(dict(
+            slug=slug(name), name=name, file=f"districts/{fname}", visits=len(v),
+            schools=len(built["schools"]), sspSchools=len(ssp),
+            sspArps=len({s.get("sspArpName") for s in ssp if s.get("sspArpName")}),
+            dateTo=meta["dateTo"],
+        ))
+        print(f"    -> {fname}: {len(v)} visits, {len(built['mentors'])} mentors, "
+              f"{len(built['schools'])} schools, {len(ssp)} SSP")
+    with open(os.path.join(OUT_DIR, "index.json"), "w", encoding="utf-8") as fh:
+        json.dump(dict(generatedAt=generated, districts=index), fh, ensure_ascii=False, indent=1)
+    old = os.path.join(OUT_DIR, "dashboard.json")
+    if os.path.exists(old):
+        os.remove(old)
 
 
 if __name__ == "__main__":
