@@ -13,16 +13,43 @@ A static dashboard for tracking ARP / DIET Mentor / SRG school visits and the cl
 
 Filters (period, block, school type, grade, subject) apply to every page and are kept in the URL, so any view can be shared as a link.
 
-## Updating the data each month
+## How the data gets here
 
-1. Put the monthly `.xlsx` exports in `data/raw/`. Keep all months there; the build reads every file and drops exact duplicates.
-2. Rebuild the data file:
-   ```bash
-   pip install pandas openpyxl
-   python etl/build.py
-   ```
-   This writes `web/public/data/dashboard.json`. The build checks each column's header text and stops with an error if the export layout has changed.
-3. Commit the updated `dashboard.json` and redeploy.
+```
+UP SSD Data (Workspace Drive, view-only)          year / month / DISTRICT.xlsx
+   │  Apps Script exporter (apps-script/), runs nightly as your Workspace account
+   │  • only the 10 programme districts • new or changed files only
+   │  • blanks phone numbers, HRMS codes, student names and free-text remarks;
+   │    mentor mobile -> salted hash (the mentor ID) • stops if a header moves
+   ▼
+data/exports/<YYYY-MM>/<DISTRICT>.csv.gz          one commit per run
+   │  GitHub Action (.github/workflows/build-data.yml)
+   ▼
+etl/build.py  ->  web/public/data/index.json + districts/<district>.json
+```
+
+The raw files never leave Workspace. Only redacted CSVs reach GitHub.
+
+**SSP tracker.** `NIPUN SSP Adoption - Mentor Tracker.xlsx` provides the district list, each district's full school list, SSP adoption and each school's adopting ARP. Put it at `data/ssp/tracker.xlsx` (git-ignored) and run the build locally. That refreshes `data/ssp/ssp_schools.csv.gz`, the committed extract that the GitHub Action uses. Commit that file when the tracker changes.
+
+### Exporter setup (once)
+
+1. Create a GitHub fine-grained token with access to **only this repository** and **Contents: Read and write**.
+2. Open the script (`apps-script/.clasp.json` has its ID) → Project Settings → Script properties → add `GITHUB_TOKEN`.
+3. Run `setup()` from the editor and approve the permissions. This creates a nightly trigger (02:00 IST) and starts the first export. The first export chains itself until every month is done.
+4. `status()` shows what's waiting and `resetState()` forces a full re-export. The logs are under Executions.
+
+To change the code: edit `apps-script/Code.js`, then run `clasp push` from `apps-script/`.
+
+### Running the build locally
+
+```bash
+pip install -r etl/requirements.txt
+python etl/build.py                 # reads data/exports (or data/raw/*.xlsx if there are no exports)
+python etl/build.py path/to/files   # any folder of .xlsx / .csv / .csv.gz exports
+```
+
+The build checks each column's header and stops if the export layout has changed.
 
 ## Running locally
 

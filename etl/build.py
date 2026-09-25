@@ -23,9 +23,15 @@ from datetime import datetime, timezone
 import pandas as pd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW_DIR = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "data", "raw")
+EXPORTS_DIR = os.path.join(ROOT, "data", "exports")  # redacted CSVs pushed by the Apps Script exporter
+LOCAL_RAW_DIR = os.path.join(ROOT, "data", "raw")  # raw .xlsx downloads (git-ignored), for local runs
+RAW_DIR = sys.argv[1] if len(sys.argv) > 1 else (
+    EXPORTS_DIR if glob.glob(os.path.join(EXPORTS_DIR, "**", "*.csv*"), recursive=True) else LOCAL_RAW_DIR)
 OUT_DIR = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "web", "public", "data")
 TRACKER = os.environ.get("SSP_TRACKER", os.path.join(ROOT, "data", "ssp", "tracker.xlsx"))
+# Committed extract of the tracker (programme districts only), used when the
+# .xlsx isn't available, e.g. in GitHub Actions.
+TRACKER_EXTRACT = os.path.join(ROOT, "data", "ssp", "ssp_schools.csv.gz")
 
 def norm(s):
     return re.sub(r"\s+", " ", unicodedata.normalize("NFC", str(s))).strip()
@@ -356,6 +362,22 @@ def load_tracker(path):
     return districts
 
 
+def save_tracker_extract(tracker, path):
+    rows = [dict(district_key=dk, district=d["name"], udise=u, name=t["name"], block=t["block"],
+                 ssp=t["ssp"], po=t["po"], arp=t.get("sspArpName") or "")
+            for dk, d in tracker.items() for u, t in d["schools"].items()]
+    pd.DataFrame(rows).to_csv(path, index=False, compression="gzip")
+
+
+def load_tracker_extract(path):
+    df = pd.read_csv(path, dtype=str, keep_default_na=False)
+    tracker = {}
+    for r in df.itertuples():
+        d = tracker.setdefault(r.district_key, dict(name=r.district, schools={}))
+        d["schools"][r.udise] = dict(name=r.name, block=r.block or None, ssp=int(r.ssp), po=int(r.po), sspArpName=r.arp or None)
+    return tracker
+
+
 def match_mentor(name, candidates, fuzzy=True):
     """Match a tracker ARP name to a mentor id from the visit data. candidates: {id: name}."""
     if not name:
@@ -382,14 +404,15 @@ def match_mentor(name, candidates, fuzzy=True):
 def read_exports(raw_dir):
     """Every .xlsx / .csv under raw_dir, in any folder layout (e.g. 2026/Aug 2026/BASTI.xlsx)."""
     files = sorted(glob.glob(os.path.join(raw_dir, "**", "*.xlsx"), recursive=True)
-                   + glob.glob(os.path.join(raw_dir, "**", "*.csv"), recursive=True))
+                   + glob.glob(os.path.join(raw_dir, "**", "*.csv"), recursive=True)
+                   + glob.glob(os.path.join(raw_dir, "**", "*.csv.gz"), recursive=True))
     if not files:
         raise SystemExit(f"No .xlsx or .csv exports under {raw_dir}")
     frames = []
     for f in files:
         name = os.path.relpath(f, raw_dir)
-        if f.endswith(".csv"):
-            d = pd.read_csv(f, dtype=str, header=None, encoding="utf-8-sig")
+        if f.endswith((".csv", ".csv.gz")):
+            d = pd.read_csv(f, dtype=str, header=None, encoding="utf-8-sig", keep_default_na=False)
         else:
             d = pd.read_excel(f, dtype=str, header=None)
         if len(d) < 2:
@@ -473,7 +496,8 @@ def build_district(raw, tracked):
     mentor_rows = pd.DataFrame({"mob": mob, "name": col("mentor"), "desig": col("desig"), "block": col("block")})
     mentors = []
     mentor_id = {}
-    for i, (m, g) in enumerate(sorted(mentor_rows.groupby("mob"), key=lambda x: -len(x[1]))):
+    # Order by visits, then name, so IDs don't depend on the (hashed) mobile number.
+    for i, (m, g) in enumerate(sorted(mentor_rows.groupby("mob"), key=lambda x: (-len(x[1]), x[1]["name"].mode().iat[0]))):
         mentor_id[m] = i
         desig = g["desig"].mode().iat[0]
         mentors.append(dict(
@@ -523,7 +547,9 @@ def build_district(raw, tracked):
         kpi_vals[k["id"]] = vals
 
     subj_codes = list(SUBJECTS.values())
-    teachers, teacher_id = [], {}
+    # Sorted, so the output doesn't depend on the order files were read in.
+    teachers = sorted({title(t) for t in col("teacher").dropna()})
+    teacher_id = {t: i for i, t in enumerate(teachers)}
     visits = []
     for idx in raw.index:
         if pd.isna(dates[idx]):
@@ -533,9 +559,6 @@ def build_district(raw, tracked):
         tname = raw.at[idx, COL["teacher"][0]]
         if tname:
             tname = title(tname)
-            if tname not in teacher_id:
-                teacher_id[tname] = len(teachers)
-                teachers.append(tname)
         kpi_str = "".join(kpi_char(kpi_vals[k["id"]][idx]) for k in KPIS)
         assert len(kpi_str) == len(KPIS)
         visits.append([
@@ -564,7 +587,15 @@ VISIT_FIELDS = ["date", "mentor", "school", "grade", "subject", "form", "minutes
 
 
 def main():
-    tracker = load_tracker(TRACKER) if os.path.exists(TRACKER) else {}
+    if os.path.exists(TRACKER):
+        tracker = load_tracker(TRACKER)
+        save_tracker_extract(tracker, TRACKER_EXTRACT)
+    elif os.path.exists(TRACKER_EXTRACT):
+        tracker = load_tracker_extract(TRACKER_EXTRACT)
+        print(f"  tracker: {TRACKER_EXTRACT} ({sum(len(d['schools']) for d in tracker.values())} schools)")
+    else:
+        tracker = {}
+    print(f"  exports: {RAW_DIR}")
     if not tracker:
         print(f"  WARNING: no SSP tracker at {TRACKER}; building every district without SSP data")
     raw = read_exports(RAW_DIR)

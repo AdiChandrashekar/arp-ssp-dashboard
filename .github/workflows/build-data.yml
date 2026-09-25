@@ -1,0 +1,55 @@
+name: Build dashboard data
+
+# Runs when the Apps Script exporter pushes new redacted exports (or the SSP
+# tracker extract / build script changes), rebuilds web/public/data, and
+# commits the result. Can also be run by hand from the Actions tab.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/exports/**'
+      - 'data/ssp/ssp_schools.csv.gz'
+      - 'etl/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-data
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: etl/requirements.txt
+
+      - run: pip install -r etl/requirements.txt
+
+      - name: Build district data
+        run: |
+          if ! ls data/exports/*/*.csv.gz >/dev/null 2>&1; then
+            echo "No exports in data/exports yet - run the Apps Script exporter first."
+            exit 0
+          fi
+          python etl/build.py
+
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/public/data
+          if git diff --cached --quiet; then
+            echo "Dashboard data unchanged."
+          else
+            git commit -m "Rebuild dashboard data"
+            git pull --rebase
+            git push
+          fi
