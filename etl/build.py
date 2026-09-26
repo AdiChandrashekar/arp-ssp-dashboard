@@ -467,9 +467,12 @@ def match_adopting_arps(schools, mentors, visit_udise, visit_mentor):
     initials or in Hindi, and two different ARPs can share a name in different
     blocks. So an adopting ARP is identified by (name, block), and matched by:
       1. exact / near-exact name among the ARPs working in that block,
-      2. else whoever made most (>= 50%, >= 3) of the ARP visits to those schools,
-      3. else a fuzzy name match anywhere in the district, if that ARP visited
-         at least one of the schools.
+      2. else exact / near-exact name anywhere in the district, if that ARP
+         visits those schools (ARPs can adopt outside their home block),
+      3. else a fuzzy name match (spelling variants) anywhere in the district,
+         if that ARP visited at least one of the schools,
+      4. else whoever made most (>= 50%, >= 3) of the ARP visits to those schools,
+         unless that ARP's own name already matched a different tracker name.
     """
     arps = [m for m in mentors if m["category"] == "ARP"]
     bkey = lambda b: re.sub(r"\W", "", str(b or "").lower())
@@ -479,29 +482,58 @@ def match_adopting_arps(schools, mentors, visit_udise, visit_mentor):
     for s in schools:
         if s.get("ssp") and s.get("sspArpName"):
             groups.setdefault((s["sspArpName"], bkey(s["block"])), []).append(s)
-    claimed = {}
-    for (name, blk), group in sorted(groups.items()):
+    all_arps = {m["id"]: m["name"] for m in arps}
+    info = {}
+    for key, group in groups.items():
         adopted = {s["udise"] for s in group}
-        counts = visits[visits["u"].isin(adopted)]["m"].value_counts()
+        info[key] = visits[visits["u"].isin(adopted)]["m"].value_counts()
+
+    # Pass 1: names. In the block first; elsewhere in the district only if that ARP visits these schools.
+    match = {}
+    for (name, blk), group in sorted(groups.items()):
+        counts = info[(name, blk)]
         in_block = {m["id"]: m["name"] for m in arps if bkey(m["block"]) == blk}
-        mid, how = match_mentor(name, in_block, fuzzy=False), "name"
-        if mid is None and len(counts) and counts.iat[0] >= 3 and counts.iat[0] / counts.sum() >= 0.5:
-            mid, how = int(counts.index[0]), f"visits {counts.iat[0]}/{counts.sum()}"
+        mid = match_mentor(name, in_block, fuzzy=False)
         if mid is None:
-            cand = match_mentor(name, {m["id"]: m["name"] for m in arps})
+            cand = match_mentor(name, all_arps, fuzzy=False)
+            if cand is not None and cand in counts.index:
+                mid = cand
+        how = "name"
+        if mid is None:  # spelling variants ("Sahani"/"Shahani"), confirmed by visits
+            cand = match_mentor(name, all_arps)
             if cand is not None and cand in counts.index:
                 mid, how = cand, "fuzzy name + visits"
-        if mid is None:
-            print(f"    WARNING: adopting ARP '{name}' ({group[0]['block']}) not found in visit data")
+                print(f"    matched '{name}' ({group[0]['block']}) -> '{mentors[mid]['name']}' by {how}")
+        if mid is not None:
+            match[(name, blk)] = (mid, how)
+    named = {}  # mentor id -> normalised tracker names matched to them by name
+    for (name, _), (mid, _) in match.items():
+        named.setdefault(mid, set()).add(norm_person(name))
+
+    # Pass 2: the rest, by who visits the schools, then fuzzy name + visits. Never hand a
+    # group to an ARP whose own (different) name already matched another tracker group.
+    for (name, blk), group in sorted(groups.items()):
+        if (name, blk) in match:
             continue
-        for s in group:
+        counts = info[(name, blk)]
+        free = lambda mid: named.get(mid, {norm_person(name)}) == {norm_person(name)}
+        mid = how = None
+        if len(counts) and counts.iat[0] >= 3 and counts.iat[0] / counts.sum() >= 0.5 and free(int(counts.index[0])):
+            mid, how = int(counts.index[0]), f"visits {counts.iat[0]}/{counts.sum()}"
+        if mid is None:
+            print(f"    WARNING: adopting ARP '{name}' ({group[0]['block']}) not matched in visit data")
+            continue
+        match[(name, blk)] = (mid, how)
+        print(f"    matched '{name}' ({group[0]['block']}) -> '{mentors[mid]['name']}' by {how}")
+
+    claimed = {}
+    for (name, blk), (mid, _) in match.items():
+        for s in groups[(name, blk)]:
             s["sspArp"] = mid
-        if how != "name":
-            print(f"    matched '{name}' ({group[0]['block']}) -> '{mentors[mid]['name']}' by {how}")
-        claimed.setdefault(mid, []).append(name)
+        claimed.setdefault(mid, set()).add(name)
     for mid, names in claimed.items():
-        if len(names) > 1:
-            print(f"    NOTE: {names} all matched to '{mentors[mid]['name']}' - check the tracker")
+        if len({norm_person(n) for n in names}) > 1:
+            print(f"    NOTE: {sorted(names)} all matched to '{mentors[mid]['name']}' - check the tracker")
 
 
 def build_district(raw, tracked):
