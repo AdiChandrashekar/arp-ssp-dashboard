@@ -1,11 +1,11 @@
 {
- "generatedAt": "2026-09-26T08:25:21+00:00",
+ "generatedAt": "2026-09-26T13:47:31+00:00",
  "districts": [
   {
    "slug": "agra",
    "name": "Agra",
    "file": "districts/agra.json",
-   "visits": 15394,
+   "visits": 15729,
    "schools": 2578,
    "sspSchools": 0,
    "sspArps": 0,
@@ -15,7 +15,7 @@
    "slug": "aligarh",
    "name": "Aligarh",
    "file": "districts/aligarh.json",
-   "visits": 16062,
+   "visits": 16303,
    "schools": 2272,
    "sspSchools": 610,
    "sspArps": 58,
@@ -25,7 +25,7 @@
    "slug": "basti",
    "name": "Basti",
    "file": "districts/basti.json",
-   "visits": 14299,
+   "visits": 14347,
    "schools": 2242,
    "sspSchools": 696,
    "sspArps": 69,
@@ -35,7 +35,7 @@
    "slug": "ghaziabad",
    "name": "Ghaziabad",
    "file": "districts/ghaziabad.json",
-   "visits": 7338,
+   "visits": 7571,
    "schools": 525,
    "sspSchools": 229,
    "sspArps": 23,
@@ -45,7 +45,7 @@
    "slug": "ghazipur",
    "name": "Ghazipur",
    "file": "districts/ghazipur.json",
-   "visits": 17960,
+   "visits": 18181,
    "schools": 2496,
    "sspSchools": 750,
    "sspArps": 75,
@@ -55,7 +55,7 @@
    "slug": "gorakhpur",
    "name": "Gorakhpur",
    "file": "districts/gorakhpur.json",
-   "visits": 15422,
+   "visits": 15744,
    "schools": 2714,
    "sspSchools": 749,
    "sspArps": 75,
@@ -65,7 +65,7 @@
    "slug": "jhansi",
    "name": "Jhansi",
    "file": "districts/jhansi.json",
-   "visits": 8366,
+   "visits": 8504,
    "schools": 1519,
    "sspSchools": 325,
    "sspArps": 32,
@@ -75,7 +75,7 @@
    "slug": "kanpur-nagar",
    "name": "Kanpur Nagar",
    "file": "districts/kanpur-nagar.json",
-   "visits": 10266,
+   "visits": 10375,
    "schools": 1935,
    "sspSchools": 430,
    "sspArps": 43,
@@ -85,7 +85,7 @@
    "slug": "moradabad",
    "name": "Moradabad",
    "file": "districts/moradabad.json",
-   "visits": 7372,
+   "visits": 7470,
    "schools": 1518,
    "sspSchools": 350,
    "sspArps": 35,
@@ -95,7 +95,7 @@
    "slug": "sitapur",
    "name": "Sitapur",
    "file": "districts/sitapur.json",
-   "visits": 20542,
+   "visits": 20806,
    "schools": 3703,
    "sspSchools": 870,
    "sspArps": 88,
@@ -103,46 +103,6 @@
   }
  ],
  "skippedFiles": [
-  {
-   "file": "2025-03/AGRA.csv.gz",
-   "reason": "2025-03/AGRA.csv.gz: placeholder headers and unexpected data in UDISE (col 5)"
-  },
-  {
-   "file": "2025-03/ALIGARH.csv.gz",
-   "reason": "2025-03/ALIGARH.csv.gz: placeholder headers and unexpected data in UDISE (col 5)"
-  },
-  {
-   "file": "2025-03/BASTI.csv.gz",
-   "reason": "2025-03/BASTI.csv.gz: placeholder headers and unexpected data in UDISE (col 5)"
-  },
-  {
-   "file": "2025-03/GHAZIABAD.csv.gz",
-   "reason": "2025-03/GHAZIABAD.csv.gz: placeholder headers and unexpected data in UDISE (col 5)"
-  },
-  {
-   "file": "2025-03/GHAZIPUR.csv.gz",
-   "reason": "2025-03/GHAZIPUR.csv.gz: placeholder headers and unexpected data in UDISE (col 5)"
-  },
-  {
-   "file": "2025-03/GORAKHPUR.csv.gz",
-   "reason": "2025-03/GORAKHPUR.csv.gz: placeholder headers and unexpected data in UDISE (col 5)"
-  },
-  {
-   "file": "2025-03/JHANSI.csv.gz",
-   "reason": "2025-03/JHANSI.csv.gz: placeholder headers and unexpected data in UDISE (col 5)"
-  },
-  {
-   "file": "2025-03/KANPUR_NAGAR.csv.gz",
-   "reason": "2025-03/KANPUR_NAGAR.csv.gz: placeholder headers and unexpected data in UDISE (col 5)"
-  },
-  {
-   "file": "2025-03/MORADABAD.csv.gz",
-   "reason": "2025-03/MORADABAD.csv.gz: placeholder headers and unexpected data in UDISE (col 5)"
-  },
-  {
-   "file": "2025-03/SITAPUR.csv.gz",
-   "reason": "2025-03/SITAPUR.csv.gz: placeholder headers and unexpected data in UDISE (col 5)"
-  },
   {
    "file": "2025-08/AGRA.csv.gz",
    "reason": "2025-08/AGRA.csv.gz: UDISE column (col 5) is mostly empty or malformed"
