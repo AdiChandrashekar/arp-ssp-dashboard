@@ -47,6 +47,9 @@ const REDACT = [
 const MENTOR_MOBILE_COL = [8, 'Mobile No'] // replaced by a salted hash: the dashboard's mentor ID
 const TEACHER_NAME_COL = [149, 'शिक्षक का नाम']
 const EXPECTED_COLUMNS = 208
+const UDISE_COL = 5
+// Bump when the export logic changes: files exported by an older version are re-exported.
+const EXPORT_VERSION = 2
 
 // ---------------------------------------------------------------- entry points
 
@@ -89,14 +92,14 @@ function runExport() {
         // Don't retry until the file changes (or resetState()); status() lists these.
         PropertiesService.getScriptProperties().setProperty(
           `x_${item.file.getId()}`,
-          JSON.stringify({ t: item.file.getLastUpdated().getTime(), what: `${item.month}/${item.district}`, why: e.message.slice(0, 300) }),
+          JSON.stringify({ v: EXPORT_VERSION, t: item.file.getLastUpdated().getTime(), what: `${item.month}/${item.district}`, why: e.message.slice(0, 300) }),
         )
       }
     }
     if (entries.length) {
       commit_(entries, `Data export: ${entries.length} file(s) (${done.map((d) => `${d.month}/${d.district}`).slice(0, 6).join(', ')}${done.length > 6 ? ', …' : ''})`)
       const props = PropertiesService.getScriptProperties()
-      done.forEach((d) => props.setProperty(`f_${d.file.getId()}`, String(d.file.getLastUpdated().getTime())))
+      done.forEach((d) => props.setProperty(`f_${d.file.getId()}`, `${EXPORT_VERSION}:${d.file.getLastUpdated().getTime()}`))
     }
     const left = todo.length - attempted
     const skipped = attempted - done.length
@@ -167,10 +170,11 @@ function findChangedFiles_() {
         const district = file.getName().replace(/\.xlsx$/i, '').trim().toUpperCase()
         if (!wanted.has(district)) continue
         const updated = file.getLastUpdated().getTime()
-        const seen = props.getProperty(`f_${file.getId()}`)
-        if (seen && Number(seen) >= updated) continue
+        // "version:lastUpdated"; entries from an older export version (or without one) are redone
+        const [ver, when] = (props.getProperty(`f_${file.getId()}`) || '').split(':')
+        if (when && Number(ver) === EXPORT_VERSION && Number(when) >= updated) continue
         const failed = props.getProperty(`x_${file.getId()}`)
-        if (failed && JSON.parse(failed).t >= updated) continue
+        if (failed && JSON.parse(failed).v === EXPORT_VERSION && JSON.parse(failed).t >= updated) continue
         out.push({ file, month, district })
       }
     }
@@ -188,6 +192,9 @@ function exportFile_(file) {
   try {
     const values = SpreadsheetApp.openById(tmp.id).getSheets()[0].getDataRange().getDisplayValues()
     const rows = redact_(values, file.getName())
+    // Redaction must never remove what the dashboard needs.
+    const withUdise = rows.slice(1).filter((r) => String(r[UDISE_COL]).trim()).length
+    if (withUdise < 0.95 * (rows.length - 1)) throw new Error(`${file.getName()}: UDISE column empty after redaction - not exporting`)
     const csv = rows.map((r) => r.map(csvCell_).join(',')).join('\n')
     return Utilities.gzip(Utilities.newBlob(csv, 'text/csv', 'export.csv'))
   } finally {
@@ -234,6 +241,7 @@ function validateByContent_(values, name) {
   }
   const checks = [
     ['date (col 10)', share(10, (v) => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v)) >= 0.95],
+    ['UDISE (col 5)', share(UDISE_COL, (v) => /^0?9\d{9}$/.test(v)) >= 0.95],
     ['grade (col 13)', share(13, (v) => v.startsWith('कक्षा')) >= 0.9],
     ['designation (col 9)', share(9, (v) => /ARP|S\s*R\s*G|DIET|Mentor/i.test(v)) >= 0.9],
     ['mentor mobile (col 8)', share(8, (v) => /^[6-9]\d{9}$/.test(v)) >= 0.9],
@@ -245,12 +253,16 @@ function validateByContent_(values, name) {
   if (failed.length) throw new Error(`${name}: placeholder headers and unexpected data in ${failed.join(', ')} - not exporting`)
 }
 
-/** Columns (other than the mentor mobile) whose values are mostly 10-digit mobile numbers. */
+/**
+ * Columns (other than the mentor mobile) whose values are mostly 10-digit mobile numbers.
+ * UDISE codes are skipped: UP codes start "09", and when the leading zero is lost
+ * ("9150202302") they look exactly like a mobile number.
+ */
 function phoneLikeColumns_(values) {
   const rows = values.slice(1, 301)
   const out = []
   for (let c = 0; c < EXPECTED_COLUMNS; c++) {
-    if (c === MENTOR_MOBILE_COL[0]) continue
+    if (c === MENTOR_MOBILE_COL[0] || c === UDISE_COL) continue
     const vals = rows.map((r) => String(r[c] ?? '').trim()).filter(Boolean)
     if (vals.length >= 5 && vals.filter((v) => /^[6-9]\d{9}$/.test(v)).length / vals.length >= 0.5) out.push(c)
   }

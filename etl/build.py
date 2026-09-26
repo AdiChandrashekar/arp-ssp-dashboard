@@ -429,8 +429,9 @@ def read_exports(raw_dir):
     if not files:
         raise SystemExit(f"No .xlsx or .csv exports under {raw_dir}")
     frames = []
+    skipped = []
     for f in files:
-        name = os.path.relpath(f, raw_dir)
+        name = os.path.relpath(f, raw_dir).replace(os.sep, "/")
         if f.endswith((".csv", ".csv.gz")):
             d = pd.read_csv(f, dtype=str, header=None, encoding="utf-8-sig", keep_default_na=False)
         else:
@@ -438,15 +439,25 @@ def read_exports(raw_dir):
         if len(d) < 2:
             continue
         headers = list(d.iloc[0])
-        if all(str(h).strip() == f"col_{i}" for i, h in enumerate(headers[:208])):
-            check_content(d, name)  # 2025 backfill files have placeholder headers
-        else:
-            check_headers(headers, name)
+        # One bad file shouldn't block the whole dashboard: skip it, loudly.
+        try:
+            if all(str(h).strip() == f"col_{i}" for i, h in enumerate(headers[:208])):
+                check_content(d, name)  # 2025 backfill files have placeholder headers
+            else:
+                check_headers(headers, name)
+            # Every file needs school codes; an empty UDISE column would merge all rows into one school.
+            u = d.iloc[1:, COL["udise"][0]].astype(str).str.strip()
+            if (u.str.match(r"\d{10,11}$")).mean() < 0.95:
+                raise SystemExit(f"{name}: UDISE column (col 5) is mostly empty or malformed")
+        except SystemExit as e:
+            print(f"  WARNING: skipping {e}")
+            skipped.append(dict(file=name, reason=str(e)))
+            continue
         frames.append(d.iloc[1:, :208].reset_index(drop=True))
     raw = pd.concat(frames, ignore_index=True)
-    print(f"  read {len(files)} files, {len(raw)} rows")
+    print(f"  read {len(files) - len(skipped)} of {len(files)} files, {len(raw)} rows")
     raw = raw.map(clean_str)
-    return raw.astype(object).where(raw.notna(), None)  # blanks as None, not NaN
+    return raw.astype(object).where(raw.notna(), None), skipped  # blanks as None, not NaN
 
 
 def match_adopting_arps(schools, mentors, visit_udise, visit_mentor):
@@ -622,7 +633,7 @@ def main():
     print(f"  exports: {RAW_DIR}")
     if not tracker:
         print(f"  WARNING: no SSP tracker at {TRACKER}; building every district without SSP data")
-    raw = read_exports(RAW_DIR)
+    raw, skipped = read_exports(RAW_DIR)
     dkeys = raw[COL["district"][0]].map(district_key)
 
     wanted = list(tracker) if tracker else sorted(dkeys.dropna().unique())
@@ -669,7 +680,7 @@ def main():
         print(f"    -> {fname}: {len(v)} visits, {len(built['mentors'])} mentors, "
               f"{len(built['schools'])} schools, {len(ssp)} SSP")
     with open(os.path.join(OUT_DIR, "index.json"), "w", encoding="utf-8") as fh:
-        json.dump(dict(generatedAt=generated, districts=index), fh, ensure_ascii=False, indent=1)
+        json.dump(dict(generatedAt=generated, districts=index, skippedFiles=skipped), fh, ensure_ascii=False, indent=1)
     old = os.path.join(OUT_DIR, "dashboard.json")
     if os.path.exists(old):
         os.remove(old)
