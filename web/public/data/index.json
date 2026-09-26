@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-09-26T21:38:09+00:00",
+ "generatedAt": "2026-09-26T21:44:03+00:00",
  "districts": [
   {
    "slug": "agra",
@@ -35,7 +35,7 @@
    "slug": "ghaziabad",
    "name": "Ghaziabad",
    "file": "districts/ghaziabad.json",
-   "visits": 8393,
+   "visits": 8926,
    "schools": 525,
    "sspSchools": 229,
    "sspArps": 23,
@@ -45,7 +45,7 @@
    "slug": "ghazipur",
    "name": "Ghazipur",
    "file": "districts/ghazipur.json",
-   "visits": 21527,
+   "visits": 23122,
    "schools": 2496,
    "sspSchools": 750,
    "sspArps": 75,
@@ -55,7 +55,7 @@
    "slug": "gorakhpur",
    "name": "Gorakhpur",
    "file": "districts/gorakhpur.json",
-   "visits": 17623,
+   "visits": 19214,
    "schools": 2714,
    "sspSchools": 749,
    "sspArps": 75,
@@ -65,7 +65,7 @@
    "slug": "jhansi",
    "name": "Jhansi",
    "file": "districts/jhansi.json",
-   "visits": 9960,
+   "visits": 10902,
    "schools": 1519,
    "sspSchools": 325,
    "sspArps": 32,
@@ -103,22 +103,6 @@
   }
  ],
  "skippedFiles": [
-  {
-   "file": "2025-12/GHAZIABAD.csv.gz",
-   "reason": "2025-12/GHAZIABAD.csv.gz: UDISE column (col 5) is mostly empty or malformed"
-  },
-  {
-   "file": "2025-12/GHAZIPUR.csv.gz",
-   "reason": "2025-12/GHAZIPUR.csv.gz: UDISE column (col 5) is mostly empty or malformed"
-  },
-  {
-   "file": "2025-12/GORAKHPUR.csv.gz",
-   "reason": "2025-12/GORAKHPUR.csv.gz: UDISE column (col 5) is mostly empty or malformed"
-  },
-  {
-   "file": "2025-12/JHANSI.csv.gz",
-   "reason": "2025-12/JHANSI.csv.gz: UDISE column (col 5) is mostly empty or malformed"
-  },
   {
    "file": "2025-12/KANPUR_NAGAR.csv.gz",
    "reason": "2025-12/KANPUR_NAGAR.csv.gz: UDISE column (col 5) is mostly empty or malformed"
