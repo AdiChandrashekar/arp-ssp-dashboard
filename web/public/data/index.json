@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-09-26T21:44:03+00:00",
+ "generatedAt": "2026-09-26T21:50:01+00:00",
  "districts": [
   {
    "slug": "agra",
@@ -75,7 +75,7 @@
    "slug": "kanpur-nagar",
    "name": "Kanpur Nagar",
    "file": "districts/kanpur-nagar.json",
-   "visits": 11577,
+   "visits": 12093,
    "schools": 1935,
    "sspSchools": 430,
    "sspArps": 43,
@@ -85,7 +85,7 @@
    "slug": "moradabad",
    "name": "Moradabad",
    "file": "districts/moradabad.json",
-   "visits": 8732,
+   "visits": 9708,
    "schools": 1518,
    "sspSchools": 350,
    "sspArps": 35,
@@ -95,25 +95,12 @@
    "slug": "sitapur",
    "name": "Sitapur",
    "file": "districts/sitapur.json",
-   "visits": 24149,
+   "visits": 26280,
    "schools": 3703,
    "sspSchools": 870,
    "sspArps": 88,
    "dateTo": "2026-08-31"
   }
  ],
- "skippedFiles": [
-  {
-   "file": "2025-12/KANPUR_NAGAR.csv.gz",
-   "reason": "2025-12/KANPUR_NAGAR.csv.gz: UDISE column (col 5) is mostly empty or malformed"
-  },
-  {
-   "file": "2025-12/MORADABAD.csv.gz",
-   "reason": "2025-12/MORADABAD.csv.gz: UDISE column (col 5) is mostly empty or malformed"
-  },
-  {
-   "file": "2025-12/SITAPUR.csv.gz",
-   "reason": "2025-12/SITAPUR.csv.gz: UDISE column (col 5) is mostly empty or malformed"
-  }
- ]
+ "skippedFiles": []
 }
