@@ -66,7 +66,9 @@ cd web
 npm run build
 ```
 
-Upload `web/dist/` to any static host (Firebase Hosting, Netlify, GitHub Pages, S3…). The build uses relative paths, so it also works from a sub-folder.
+**GitHub Pages.** `.github/workflows/deploy-pages.yml` builds `web/` and publishes it to https://adichandrashekar.github.io/arp-ssp-dashboard/ on every push to `main` that changes `web/`, and after each data rebuild. Turn it on once under Settings → Pages → Source: **GitHub Actions**. The site is public: anyone with the link can see it.
+
+Or upload `web/dist/` to any static host (Firebase Hosting, Netlify, GitHub Pages, S3…). The build uses relative paths, so it also works from a sub-folder.
 
 ## Privacy
 
