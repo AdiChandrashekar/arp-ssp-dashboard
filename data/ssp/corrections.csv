@@ -1,0 +1,10 @@
+district,action,udise_code,school_name,mentor_name,block,source
+Basti,set_udise,9550700407,Composite Kanya Mahso,Rukmini Devi Mishra,Basti Sadar,Basti School Categorisation.xlsx: MAHSO (UPS)
+Basti,set_udise,9550206402,UPS Pokhara,Skand Mishra,Kaptanganj,Basti School Categorisation.xlsx: POKHRA (UPS)
+Basti,set_udise,9551400601,प्राथमिक विद्यालय मिश्रौलिया /दक्षिण दरवाजा,गरिमा त्रिपाठी,Nagar Kshetra,Basti School Categorisation.xlsx: MISHRAULIYA (PS)
+Basti,set_udise,9550805802,सं.वि.मझारी पश्चिम,Arvind Kumar,Ramnagar,Basti School Categorisation.xlsx: MANJHARI (Composite)
+Basti,remove,9550711502,PS Lakada,Rukmini Devi Mishra,Basti Sadar,Not on Rukmini Mishra's signed list (2026-09)
+Basti,add,9550710201,PS Bhuwar Niranjanpur,Rukmini Devi Mishra,Basti Sadar,Rukmini Mishra's signed list (2026-09)
+Basti,add,9550705602,Composite Darideeha Takiya,Rukmini Devi Mishra,Basti Sadar,Rukmini Mishra's signed list (2026-09)
+Basti,add,9550707101,PS Pandeydeeha,Rukmini Devi Mishra,Basti Sadar,Rukmini Mishra's signed list (2026-09)
+Basti,add,9550717701,PS Bhaisahiya,Rukmini Devi Mishra,Basti Sadar,Rukmini Mishra's signed list (2026-09)

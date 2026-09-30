@@ -32,6 +32,8 @@ The raw files never leave Workspace. Only redacted CSVs reach GitHub.
 
 **SSP tracker.** `NIPUN SSP Adoption - Mentor Tracker.xlsx` provides the district list, each district's full school list, SSP adoption and each school's adopting ARP. Put it at `data/ssp/tracker.xlsx` (git-ignored) and run the build locally. That refreshes `data/ssp/ssp_schools.csv.gz`, the committed extract that the GitHub Action uses. Commit that file when the tracker changes.
 
+Fixes that haven't reached the source tracker yet (a missing UDISE code, a school an ARP added or dropped) go in `data/ssp/corrections.csv` (actions `set_udise`, `add`, `remove`). The build applies them on top of the tracker and prints a note for any that no longer match, e.g. once the source sheet has been fixed.
+
 ### Exporter setup (once)
 
 1. Create a GitHub fine-grained token with access to **only this repository** and **Contents: Read and write**.

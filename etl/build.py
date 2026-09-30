@@ -32,6 +32,9 @@ TRACKER = os.environ.get("SSP_TRACKER", os.path.join(ROOT, "data", "ssp", "track
 # Committed extract of the tracker (programme districts only), used when the
 # .xlsx isn't available, e.g. in GitHub Actions.
 TRACKER_EXTRACT = os.path.join(ROOT, "data", "ssp", "ssp_schools.csv.gz")
+# Fixes to the tracker's ARP sheets that haven't reached the source sheet yet
+# (missing UDISE codes, schools added or dropped by an ARP).
+TRACKER_CORRECTIONS = os.path.join(ROOT, "data", "ssp", "corrections.csv")
 
 def norm(s):
     return re.sub(r"\s+", " ", unicodedata.normalize("NFC", str(s))).strip()
@@ -351,6 +354,7 @@ def load_tracker(path):
     master = pd.read_excel(xl, "SSP Adoption", dtype=str)
     master["u"] = master["udise_code"].map(norm_udise)
     master["dk"] = master["district"].map(district_key)
+    fixes = pd.read_csv(TRACKER_CORRECTIONS, dtype=str) if os.path.exists(TRACKER_CORRECTIONS) else None
     districts = {}
     for sheet in xl.sheet_names:
         if sheet in ("SSP Adoption", "Mentor_All"):
@@ -358,8 +362,12 @@ def load_tracker(path):
         dk = district_key(sheet)
         adopted = pd.read_excel(xl, sheet, dtype=str, usecols=range(4))
         adopted.columns = ["udise_code", "school_name", "mentor_name", "block"]
+        dropped = set()
+        if fixes is not None:
+            adopted, dropped = apply_corrections(adopted, fixes[fixes["district"].map(district_key) == dk], sheet)
         adopted = adopted.dropna(subset=["udise_code"])
         adopted["u"] = adopted["udise_code"].map(norm_udise)
+        master.loc[(master["dk"] == dk) & master["u"].isin(dropped), "mentor_ssp_adopted"] = "No"
         arp_of = {r.u: clean_str(r.mentor_name) for r in adopted.itertuples() if isinstance(r.u, str)}
         schools = {}
         for r in master[master["dk"] == dk].itertuples():
@@ -380,6 +388,37 @@ def load_tracker(path):
         districts[dk] = dict(name=title(sheet.strip()), schools=schools)
         print(f"  tracker {sheet}: {len(schools)} schools, {sum(s['ssp'] for s in schools.values())} ARP-adopted")
     return districts
+
+
+def apply_corrections(adopted, fixes, sheet):
+    """Apply data/ssp/corrections.csv to one ARP sheet. Returns (sheet, UDISE codes removed).
+
+    set_udise fills a blank code (matched on ARP + school name), remove drops an
+    ARP's school (matched on ARP + code), add appends a school. A fix that no
+    longer matches is reported, e.g. once the source sheet has it.
+    """
+    adopted = adopted.copy()
+    dropped = set()
+    for f in fixes.itertuples():
+        same_arp = adopted["mentor_name"].map(norm) == norm(f.mentor_name)
+        codes = adopted["udise_code"].map(norm_udise)
+        if f.action == "set_udise":
+            hit = same_arp & (adopted["school_name"].map(norm) == norm(f.school_name)) & adopted["udise_code"].isna()
+            adopted.loc[hit, "udise_code"] = f.udise_code
+        elif f.action == "remove":
+            hit = same_arp & (codes == norm_udise(f.udise_code))
+            adopted = adopted[~hit]
+            dropped.add(norm_udise(f.udise_code))
+        elif f.action == "add":
+            hit = pd.Series([not (same_arp & (codes == norm_udise(f.udise_code))).any()])
+            if hit.iat[0]:
+                adopted = pd.concat([adopted, pd.DataFrame([dict(udise_code=f.udise_code, school_name=f.school_name,
+                                                                   mentor_name=f.mentor_name, block=f.block)])])
+        else:
+            raise SystemExit(f"{TRACKER_CORRECTIONS}: unknown action '{f.action}'")
+        if not hit.any():
+            print(f"    NOTE: correction no longer applies ({sheet}): {f.action} {f.udise_code} {f.school_name}")
+    return adopted.reset_index(drop=True), dropped
 
 
 def save_tracker_extract(tracker, path):
