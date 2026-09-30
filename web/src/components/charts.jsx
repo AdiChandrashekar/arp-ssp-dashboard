@@ -117,24 +117,35 @@ export function ColumnChart({ data, height = 220, reference, valueFormat = (v) =
   )
 }
 
+// Y-axis top for a chart with a target line: 10% headroom, rounded up to a
+// multiple of 20 so the quarter gridlines are multiples of 5 (target 30 -> 0, 10, 20, 30, 40).
+export function yMaxWithTarget(values, target) {
+  return 20 * Math.ceil((Math.max(target, ...values.filter((v) => v != null)) * 1.1) / 20)
+}
+
 // Categorical slots from the reference palette, in fixed order (never cycled).
 export const SERIES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100']
 
 /**
  * Lines over a shared x axis (months). One y scale only.
  * xs: [{ key, label }], series: [{ key, label, values: [number|null], color? }]
+ * reference: optional { value, label } drawn as a solid hairline (e.g. a target).
  */
-export function LineChart({ xs, series, height = 230, yMax = 100, valueFormat = (v) => `${Math.round(v)}%`, onSelect, selectedKey }) {
+export function LineChart({ xs, series, height = 230, yMax = 100, valueFormat = (v) => `${Math.round(v)}%`, reference, onSelect, selectedKey }) {
   const [ref, width] = useWidth()
   const [hover, setHover] = useState(null)
   const pad = { l: 40, r: 96, t: 14, b: 28 }
   const plotW = width - pad.l - pad.r
   const plotH = height - pad.t - pad.b
-  const max = yMax ?? niceMax(Math.max(1, ...series.flatMap((s) => s.values.filter((v) => v != null))))
+  const max = yMax ?? niceMax(Math.max(1, reference?.value || 0, ...series.flatMap((s) => s.values.filter((v) => v != null))))
   const x = (i) => pad.l + (xs.length === 1 ? plotW / 2 : (plotW * i) / (xs.length - 1))
   const y = (v) => pad.t + plotH - (v / max) * plotH
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => t * max)
   const colorOf = (s, i) => s.color || SERIES[i]
+  // Thin the month labels to fit; the selected month always keeps its label.
+  const labelEvery = Math.ceil(xs.length / Math.max(1, Math.floor(plotW / 44)))
+  const sel = xs.findIndex((xv) => xv.key === selectedKey)
+  const showLabel = (i) => i === sel || (i % labelEvery === 0 && (sel < 0 || Math.abs(i - sel) >= labelEvery))
 
   const path = (vals) => {
     let d = ''
@@ -180,11 +191,19 @@ export function LineChart({ xs, series, height = 230, yMax = 100, valueFormat = 
             </text>
           </g>
         ))}
-        {xs.map((xv, i) => (
+        {xs.map((xv, i) => showLabel(i) && (
           <text key={xv.key} x={x(i)} y={height - 8} className={`tick${selectedKey === xv.key ? ' tick-selected' : ''}`} textAnchor="middle">
             {xv.label}
           </text>
         ))}
+        {reference && reference.value <= max && (
+          <g>
+            <line x1={pad.l} x2={width - pad.r} y1={y(reference.value)} y2={y(reference.value)} className="ref-line" />
+            <text x={width - pad.r} y={y(reference.value) - 5} className="ref-label" textAnchor="end">
+              {reference.label}
+            </text>
+          </g>
+        )}
         {hover != null && <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + plotH} className="crosshair" />}
         {series.map((s, i) => (
           <g key={s.key}>

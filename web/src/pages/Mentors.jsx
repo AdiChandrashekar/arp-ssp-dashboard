@@ -1,10 +1,7 @@
 import { useMemo, useState } from 'react'
-import { applyFilters, countBy, fmt, groupBy, mentorSummary, monthShort, monthsInPeriod, periodLabel, sspCoverage, statusFor } from '../data.js'
+import { applyFilters, countBy, fmt, groupBy, mentorSummary, monthShort, monthsInPeriod, periodLabel, sspCoverage, statusFor, TREND_FROM, trendMonths } from '../data.js'
 import { Card, DataTable, Meter, Section, StatCard, Tabs } from '../components/ui.jsx'
-import { Heatmap, LineChart } from '../components/charts.jsx'
-
-// First month shown on the ARP visits-per-month trend.
-const TREND_FROM = '2025-07'
+import { Heatmap, LineChart, yMaxWithTarget } from '../components/charts.jsx'
 
 export default function Mentors({ data, filters, setFilters, nav, category }) {
   const isArp = category === 'ARP'
@@ -40,19 +37,8 @@ export default function Mentors({ data, filters, setFilters, nav, category }) {
       }
     })
     const monthCounts = countBy(allTime, (v) => `${v.mentor}|${v.month}`)
-    // Every month from TREND_FROM to the latest data month, zero-filled so gaps show as drops.
-    const trendMonths = []
-    const last = data.months[data.months.length - 1] || TREND_FROM
-    let [y, mo] = TREND_FROM.split('-').map(Number)
-    for (let key = TREND_FROM; key <= last; key = `${y}-${String(mo).padStart(2, '0')}`) {
-      trendMonths.push(key)
-      if (++mo > 12) {
-        mo = 1
-        y++
-      }
-    }
     const byMonth = groupBy(allTime, (v) => v.month)
-    const trend = trendMonths.map((month) => {
+    const trend = trendMonths(data.months).map((month) => {
       const vs = byMonth.get(month) || []
       const active = new Set(vs.map((v) => v.mentor)).size
       return { month, visits: vs.length, active }
@@ -141,21 +127,22 @@ export default function Mentors({ data, filters, setFilters, nav, category }) {
 
       {isArp && (
         <Card
-          title="ARP visits per month"
-          sub={`${monthShort(TREND_FROM)} onwards · block, school type, grade, subject and ARP Focus Schools filters apply · click a month to focus on it`}
+          title="Visits per ARP, month by month"
+          sub={`Average visits per active ARP (ARPs with at least one visit that month) against the target of ${target} · ${monthShort(TREND_FROM)} onwards · block, school type, grade, subject and ARP Focus Schools filters apply · click a month to focus on it`}
         >
           <LineChart
             xs={m.trend.map((t) => ({ key: t.month, label: monthShort(t.month) }))}
             series={[
               {
-                key: 'visits',
-                label: 'Visits by ARPs',
-                values: m.trend.map((t) => t.visits),
-                notes: m.trend.map((t) => `· ${t.active} active ARPs · ${fmt.num1(t.active ? t.visits / t.active : null)} per active ARP`),
+                key: 'perArp',
+                label: 'Visits per active ARP',
+                values: m.trend.map((t) => (t.active ? t.visits / t.active : null)),
+                notes: m.trend.map((t) => (t.active ? `· ${fmt.int(t.visits)} visits by ${t.active} active ARPs` : 'no visits recorded')),
               },
             ]}
-            yMax={null}
-            valueFormat={fmt.int}
+            yMax={yMaxWithTarget(m.trend.map((t) => (t.active ? t.visits / t.active : null)), target)}
+            valueFormat={(v) => (Number.isInteger(v) ? fmt.int(v) : fmt.num1(v))}
+            reference={{ value: target, label: `Target ${target}` }}
             selectedKey={filters.ptype === 'month' ? filters.pval : null}
             onSelect={(pval) => setFilters({ ptype: 'month', pval })}
           />

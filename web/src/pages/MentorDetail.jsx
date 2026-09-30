@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { applyFilters, countBy, fmt, groupBy, kpiRate, mean, mentorSummary, monthLabel, monthShort, monthsInPeriod, periodLabel, statusFor } from '../data.js'
+import { applyFilters, countBy, fmt, groupBy, kpiRate, mean, mentorSummary, monthLabel, monthShort, monthsInPeriod, periodLabel, statusFor, TREND_FROM, trendMonths } from '../data.js'
 import { Card, DataTable, Empty, Pill, Section, StatCard, Tabs } from '../components/ui.jsx'
-import { BarList, ColumnChart, Heatmap, MonthCalendar } from '../components/charts.jsx'
+import { BarList, Heatmap, LineChart, MonthCalendar, yMaxWithTarget } from '../components/charts.jsx'
 
 const FORM_LABEL = { FM: 'FLN Maths', FH: 'FLN Hindi', G: 'Gr 4-8', O: 'Gr 1-3 other' }
 
@@ -26,6 +26,7 @@ export default function MentorDetail({ data, filters, setFilters, nav, id, back 
       months,
       periodTarget: target * months.length,
       byMonth,
+      trend: trendMonths(data.months),
       sum: mentorSummary(inPeriod, data.kpiIndex.feedback),
       peers,
       dayCounts: countBy(inPeriod, (v) => v.date),
@@ -78,14 +79,12 @@ export default function MentorDetail({ data, filters, setFilters, nav, id, back 
       </div>
 
       <div className={filters.ptype === 'month' ? 'grid-2' : ''}>
-        <Card title="Visits per month" sub={isArp ? `Target ${target} per month · click a month to open it` : 'Click a month to open it'}>
-          <ColumnChart
-            data={data.months.map((mo) => ({
-              key: mo,
-              label: monthShort(mo),
-              value: m.byMonth.get(mo) || 0,
-              tip: `${monthLabel(mo)}: ${m.byMonth.get(mo) || 0} visits`,
-            }))}
+        <Card title="Visits per month" sub={`${monthShort(TREND_FROM)} onwards · ${isArp ? `target ${target} per month · ` : ''}click a month to open it`}>
+          <LineChart
+            xs={m.trend.map((mo) => ({ key: mo, label: monthShort(mo) }))}
+            series={[{ key: 'visits', label: 'Visits', values: m.trend.map((mo) => m.byMonth.get(mo) || 0) }]}
+            yMax={yMaxWithTarget(m.trend.map((mo) => m.byMonth.get(mo) || 0), isArp ? target : 0)}
+            valueFormat={fmt.int}
             reference={isArp ? { value: target, label: `Target ${target}` } : undefined}
             selectedKey={filters.ptype === 'month' ? filters.pval : null}
             onSelect={(mo) => setFilters({ ptype: 'month', pval: mo })}

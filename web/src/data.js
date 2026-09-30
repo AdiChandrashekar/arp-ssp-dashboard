@@ -148,6 +148,24 @@ export function inPeriod(filters) {
   return filters.ptype === 'all' ? 'across all months' : `in ${periodLabel(filters)}`
 }
 
+// First month shown on the ARP visits-per-month trend charts.
+export const TREND_FROM = '2025-07'
+
+// Every month from TREND_FROM to the latest data month, so months with no visits still get a point.
+export function trendMonths(months) {
+  const out = []
+  const last = months[months.length - 1] || TREND_FROM
+  let [y, mo] = TREND_FROM.split('-').map(Number)
+  for (let key = TREND_FROM; key <= last; key = `${y}-${String(mo).padStart(2, '0')}`) {
+    out.push(key)
+    if (++mo > 12) {
+      mo = 1
+      y++
+    }
+  }
+  return out
+}
+
 export function monthsInPeriod(months, filters) {
   return months.filter((m) => filters.ptype === 'all' || periodKey(m, filters.ptype) === filters.pval)
 }
