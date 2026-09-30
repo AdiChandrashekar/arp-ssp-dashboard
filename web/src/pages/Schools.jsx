@@ -46,7 +46,7 @@ export default function Schools({ data, filters, nav }) {
       </div>
 
       <div className="stats">
-        <StatCard label={filters.ssp ? 'SSP-adopted schools' : 'Schools'} value={fmt.int(m.rows.length)} sub={filters.ssp ? 'from the SSP adoption tracker' : 'in the district school list'} />
+        <StatCard label={filters.ssp ? 'ARP Focus Schools' : 'Schools'} value={fmt.int(m.rows.length)} sub={filters.ssp ? 'from the adoption tracker' : 'in the district school list'} />
         <StatCard label="Visited" value={fmt.int(visited.length)} sub={`${fmt.pct((visited.length / Math.max(1, m.rows.length)) * 100)} of schools · ${pl}`} />
         <StatCard label="Not visited" value={fmt.int(notVisited.length)} sub={`in ${pl}`} status={notVisited.length === 0 ? 'good' : 'neutral'} onClick={() => setView('not')} />
         <StatCard label="Visited 3+ times" value={fmt.int(three)} sub={`in ${pl}`} />
@@ -62,7 +62,7 @@ export default function Schools({ data, filters, nav }) {
           { value: 'not', label: `Not visited (${notVisited.length})` },
         ]}
       />
-      <Section sub="The school list comes from the SSP adoption tracker (every school in the district) plus any other school that got a visit. Click a school to see every visit.">
+      <Section sub="The school list comes from the adoption tracker (every school in the district) plus any other school that got a visit. Click a school to see every visit.">
         <DataTable
           key={view}
           csvName={`schools-${view}-${pl}.csv`}
@@ -77,9 +77,9 @@ export default function Schools({ data, filters, nav }) {
             { key: 'type', label: 'Type', value: (s) => s.type },
             {
               key: 'adoptedBy',
-              label: 'SSP adopted by',
+              label: 'ARP Focus School of',
               value: (s) => s.adoptedBy,
-              render: (s) => (s.ssp ? <span className="pill pill-ssp" title="School Support Programme">{s.adoptedBy || 'SSP'}</span> : ''),
+              render: (s) => (s.ssp ? <span className="pill pill-ssp" title="ARP Focus School">{s.adoptedBy || 'Focus'}</span> : ''),
             },
             { key: 'visits', label: `Visits (${pl})`, value: (s) => s.visits, align: 'right' },
             { key: 'grades', label: 'Grades observed', value: (s) => s.grades.join(', '), render: (s) => <GradeChips grades={s.grades} />, sortable: false },

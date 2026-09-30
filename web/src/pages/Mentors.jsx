@@ -118,7 +118,7 @@ export default function Mentors({ data, filters, setFilters, nav, category }) {
       <div className="page-head">
         <div className="crumbs">Dashboard / {isArp ? 'ARP Visits' : 'DIET Mentors & SRGs'}</div>
         <h1>{isArp ? 'ARP visits' : 'DIET Mentor & SRG visits'} · {pl}</h1>
-        {filters.ssp && <div className="page-meta"><span className="pill pill-ssp">SSP schools only</span> <span className="muted">visits to ARP-adopted schools; ARPs who adopted schools</span></div>}
+        {filters.ssp && <div className="page-meta"><span className="pill pill-ssp">ARP Focus Schools only</span> <span className="muted">visits to ARP-adopted schools; ARPs who adopted schools</span></div>}
       </div>
 
       <div className="stats">
@@ -142,7 +142,7 @@ export default function Mentors({ data, filters, setFilters, nav, category }) {
       {isArp && (
         <Card
           title="ARP visits per month"
-          sub={`${monthShort(TREND_FROM)} onwards · block, school type, grade, subject and SSP filters apply · click a month to focus on it`}
+          sub={`${monthShort(TREND_FROM)} onwards · block, school type, grade, subject and ARP Focus Schools filters apply · click a month to focus on it`}
         >
           <LineChart
             xs={m.trend.map((t) => ({ key: t.month, label: monthShort(t.month) }))}

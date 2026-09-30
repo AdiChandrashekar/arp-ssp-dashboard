@@ -232,7 +232,7 @@ function AdoptedSchools({ data, id, filters, nav }) {
   const bySm = groupBy(visits, (v) => `${v.school}|${v.month}`)
   return (
     <Card
-      title={`Adopted schools (SSP) · ${adopted.length}`}
+      title={`ARP Focus Schools · ${adopted.length}`}
       sub="Each cell: visits that month · ★ = this ARP visited · grades observed · FLN / Gr 4-8 practice score"
     >
       <div className="heatmap-wrap">

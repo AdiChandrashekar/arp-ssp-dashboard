@@ -69,7 +69,7 @@ export default function Ssp({ data, filters, nav }) {
     return { sspV, otherV, sspByMonth, otherByMonth, bySchoolMonth, coverage, inScope }
   }, [data, filters, meta.sspFrom, months])
 
-  if (!data.sspSchools.length) return <Empty>No SSP-adopted schools for {meta.district} in the tracker.</Empty>
+  if (!data.sspSchools.length) return <Empty>No ARP Focus Schools for {meta.district} in the tracker.</Empty>
   if (!months.length) return <Empty>No visits since {monthLabel(meta.sspFrom)} yet.</Empty>
 
   const fi = months.indexOf(fm)
@@ -113,8 +113,8 @@ export default function Ssp({ data, filters, nav }) {
   return (
     <div>
       <div className="page-head">
-        <div className="crumbs">Dashboard / SSP Deep Dive</div>
-        <h1>School Support Programme · {meta.district}</h1>
+        <div className="crumbs">Dashboard / ARP Focus Schools</div>
+        <h1>ARP Focus Schools · {meta.district}</h1>
         <div className="page-meta">
           <span className="pill pill-ssp">ARP-adopted schools</span>
           <span className="muted">
@@ -136,7 +136,7 @@ export default function Ssp({ data, filters, nav }) {
         <StatCard label={`By own ARP · ${monthShort(fm)}`} value={`${cov.own} / ${cov.schools}`} sub={`${fmt.pct(pct(cov.own, cov.schools))} of adopted schools`} status={statusFor(pct(cov.own, cov.schools), 90, 70)} />
         <StatCard label="ARPs covering all schools" value={`${cov.arpsFull} / ${cov.perArp.size}`} sub={`visited every adopted school in ${monthShort(fm)}`} />
         <StatCard label="Visits to adopted schools" value={fmt.int(fSsp.length)} sub={`${fmt.pct(pct(fSsp.filter((v) => v.ownArp).length, fSsp.length))} made by the adopting ARP`} />
-        <StatCard label="FLN score · SSP vs others" value={fmt.pct(mean(fSsp.map((v) => v.flnScore)))} sub={`other schools ${fmt.pct(mean(fOther.map((v) => v.flnScore)))}`} />
+        <StatCard label="FLN score · focus vs others" value={fmt.pct(mean(fSsp.map((v) => v.flnScore)))} sub={`other schools ${fmt.pct(mean(fOther.map((v) => v.flnScore)))}`} />
       </div>
 
       <div className="grid-2">
@@ -155,7 +155,7 @@ export default function Ssp({ data, filters, nav }) {
           <LineChart
             xs={months.map((mo) => ({ key: mo, label: monthShort(mo) }))}
             series={[
-              { key: 'ssp', label: 'SSP-adopted schools', short: 'SSP', values: months.map((mo) => mean((m.sspByMonth.get(mo) || []).map((v) => v.flnScore))) },
+              { key: 'ssp', label: 'ARP Focus Schools', short: 'Focus', values: months.map((mo) => mean((m.sspByMonth.get(mo) || []).map((v) => v.flnScore))) },
               { key: 'other', label: 'Other schools', short: 'other', values: months.map((mo) => mean((m.otherByMonth.get(mo) || []).map((v) => v.flnScore))) },
             ]}
             selectedKey={fm}
@@ -164,7 +164,7 @@ export default function Ssp({ data, filters, nav }) {
         </Card>
       </div>
 
-      <Card title="Classroom practices in adopted schools, month by month" sub="% of observations in SSP-adopted schools · last column: difference from other schools in the focused month (percentage points)">
+      <Card title="Classroom practices in adopted schools, month by month" sub="% of observations in ARP Focus Schools · last column: difference from other schools in the focused month (percentage points)">
         <Heatmap
           rowHeader="KPI"
           rows={data.meta.kpis.filter((k) => k.group !== 'school').map((k) => ({ key: k.id, label: `${k.group === 'fln' ? 'FLN' : 'Gr 4-8'} · ${k.label}` }))}
@@ -176,7 +176,7 @@ export default function Ssp({ data, filters, nav }) {
               const b = kpiRate(fOther, idx)
               if (a.n < 5 || b.n < 5) return null
               const d = a.pct - b.pct
-              return { value: null, text: `${d > 0 ? '+' : ''}${Math.round(d)}`, tip: `SSP ${fmt.pct(a.pct)} vs others ${fmt.pct(b.pct)}` }
+              return { value: null, text: `${d > 0 ? '+' : ''}${Math.round(d)}`, tip: `Focus ${fmt.pct(a.pct)} vs others ${fmt.pct(b.pct)}` }
             }
             const r = kpiRate(m.sspByMonth.get(mo) || [], idx)
             return r.n < 5 ? null : { value: r.pct, text: Math.round(r.pct), tip: `${monthShort(mo)}: ${fmt.pct(r.pct)} (n=${r.n})` }

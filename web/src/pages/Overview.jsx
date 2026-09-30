@@ -93,11 +93,11 @@ export default function Overview({ data, filters, setFilters, nav }) {
       </div>
 
       <div className="narrative">
-        {filters.ssp && <span className="pill pill-ssp">SSP schools only</span>}{' '}
+        {filters.ssp && <span className="pill pill-ssp">ARP Focus Schools only</span>}{' '}
         <strong>{fmt.int(m.inPeriod.length)}</strong> classroom visits {inPeriod(filters)}
         {filters.ssp ? (
           <>
-            {' '}to SSP-adopted schools. <strong>{m.ssp.visited} of {m.ssp.schools}</strong> adopted schools got a visit, {m.ssp.own} of them from the ARP
+            {' '}to ARP Focus Schools. <strong>{m.ssp.visited} of {m.ssp.schools}</strong> adopted schools got a visit, {m.ssp.own} of them from the ARP
             who adopted them. {m.ssp.arpsFull} of {m.ssp.perArp.size} ARPs visited every school they adopted.
           </>
         ) : m.inPeriod.length > 0 && (
@@ -150,7 +150,7 @@ export default function Overview({ data, filters, setFilters, nav }) {
             onSelect={(mo) => setFilters({ ptype: 'month', pval: mo })}
           />
         </Card>
-        <Card title="Visits per active ARP" sub={filters.ssp ? 'Average SSP-school visits per ARP who made one' : `Average per ARP who made at least one visit · target ${target}`}>
+        <Card title="Visits per active ARP" sub={filters.ssp ? 'Average ARP Focus School visits per ARP who made one' : `Average per ARP who made at least one visit · target ${target}`}>
           <ColumnChart
             data={m.monthly.map((d) => ({
               key: d.mo,

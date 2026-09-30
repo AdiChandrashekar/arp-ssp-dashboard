@@ -16,7 +16,7 @@ const NAV = [
   { path: 'mentors', label: 'DIET Mentors & SRGs', icon: '◎' },
   { path: 'schools', label: 'Schools', icon: '▦' },
   { path: 'kpis', label: 'Academic KPIs', icon: '▤' },
-  { path: 'ssp', label: 'SSP Deep Dive', icon: '★' },
+  { path: 'ssp', label: 'ARP Focus Schools', icon: '★' },
   { path: 'about', label: 'Definitions', icon: 'ⓘ' },
 ]
 
@@ -104,7 +104,7 @@ export default function App() {
   if (!data.visits.length && route.page !== 'about') {
     body = (
       <Empty>
-        No visit data for {district.name} yet. {data.sspSchools.length ? `${data.sspSchools.length} SSP-adopted schools are listed in the tracker.` : ''}
+        No visit data for {district.name} yet. {data.sspSchools.length ? `${data.sspSchools.length} ARP Focus Schools are listed in the tracker.` : ''}
       </Empty>
     )
   } else {
@@ -212,10 +212,10 @@ function FilterBar({ index, data, filters, setFilters, page }) {
       <Select label="Grade" value={filters.grade} onChange={(grade) => setFilters({ grade })} placeholder="All grades" options={GRADE_OPTIONS} />
       <Select label="Subject" value={filters.subject} onChange={(subject) => setFilters({ subject })} placeholder="All subjects" options={data.meta.subjects.map((s) => ({ value: s, label: s }))} />
       {!onSspPage && (
-        <label className={`toggle${filters.ssp ? ' on' : ''}`} title="Show only schools adopted by ARPs under the School Support Programme">
+        <label className={`toggle${filters.ssp ? ' on' : ''}`} title="Show only ARP Focus Schools (schools adopted by ARPs)">
           <input type="checkbox" checked={!!filters.ssp} onChange={(e) => setFilters({ ssp: e.target.checked ? '1' : '' })} />
           <span className="toggle-track" aria-hidden><span className="toggle-thumb" /></span>
-          <span className="toggle-label">SSP schools only</span>
+          <span className="toggle-label">ARP Focus Schools only</span>
         </label>
       )}
       {active && (

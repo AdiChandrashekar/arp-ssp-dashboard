@@ -43,7 +43,7 @@ export default function SchoolDetail({ data, filters, nav, id }) {
           <Pill>UDISE {school.udise}</Pill> <Pill>{school.block} block</Pill> {school.type && <Pill>{school.type}</Pill>} {school.area && <Pill>{school.area}</Pill>}
           {school.ssp ? (
             <span className="pill pill-ssp">
-              SSP · adopted by {school.sspArp != null ? data.mentors[school.sspArp].name : school.sspArpName || 'unknown ARP'}
+              ARP Focus School · adopted by {school.sspArp != null ? data.mentors[school.sspArp].name : school.sspArpName || 'unknown ARP'}
             </span>
           ) : null}
           {school.po ? <Pill>PO-adopted</Pill> : null}
