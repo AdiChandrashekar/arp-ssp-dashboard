@@ -1,4 +1,4 @@
-import { fmt } from '../data.js'
+import { fmt, monthLabel as monthName } from '../data.js'
 
 export default function About({ data }) {
   const { meta } = data
@@ -74,6 +74,37 @@ export default function About({ data }) {
         denominator. The assessment tracker counts only when it is filled regularly <i>and</i> children are grouped into A and B. There is no student learning-outcome data in
         this export. The "5 random students" field holds names only and is not published.
       </p>
+
+      <h3>Spot assessments</h3>
+      <p>
+        When a mentor visits a school they assess a few students on the spot (usually 5). The state's "Mentor Spot Raw Data" workbooks give the result per school per
+        month{meta.spotFrom ? `, ${monthName(meta.spotFrom)} to ${monthName(meta.spotTo)}` : ''}, and per class from August 2026. They don't say which mentor did the
+        assessment or on which day, so the dashboard links them to visits by school and month (and class, when it is recorded and matches the grade observed).
+      </p>
+      <dl>
+        <dt>Levels</dt>
+        <dd>
+          <b>Saksham</b> (proficient), <b>Madhyam</b> (intermediate, a level added in April 2026; before that those students were counted in the other levels),{' '}
+          <b>Pragatisheel</b> (progressing) and <b>Zero score</b>. The levels add up to the students assessed.
+        </dd>
+        <dt>% Saksham</dt>
+        <dd>Students at Saksham level ÷ students assessed, pooled across schools (a school where more students were assessed weighs more).</dd>
+        <dt>Spot · Saksham on a visit</dt>
+        <dd>
+          The spot result for the school in the month of the visit. If several mentors visited that month, they all show the same result. On a mentor's page,
+          each school-month counts once.
+        </dd>
+        <dt>Filters</dt>
+        <dd>
+          Period, block, school type and the ARP Focus Schools switch apply as for visits. Spot results have no subject. A grade filter keeps only results
+          recorded with a class, so it shows nothing before August 2026.
+        </dd>
+        <dt>Data notes</dt>
+        <dd>
+          The 2025 sheets repeat some school rows exactly; the repeats are dropped. Rows with a missing or malformed UDISE, or for a school that isn't in the
+          district school list, are left out. Spot data can run ahead of the visit data; those months appear on the trend charts only.
+        </dd>
+      </dl>
 
       <h3>ARP Focus Schools</h3>
       <dl>

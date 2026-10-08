@@ -79,7 +79,38 @@ function decode(raw) {
     if (!adoptedBy.has(s.sspArp)) adoptedBy.set(s.sspArp, [])
     adoptedBy.get(s.sspArp).push(s)
   }
-  return { meta, mentors, schools, visits, months, blocks, kpiIndex, sspSchools, adoptedBy }
+  const spot = decodeSpot(raw.spot || [], meta.spotFields, schools)
+  const spotMonths = [...new Set(spot.map((r) => r.month))].sort()
+  // school id -> month -> spot rows, for joining visits to the assessment done that month
+  const spotBySchool = new Map()
+  for (const r of spot) {
+    if (!spotBySchool.has(r.school)) spotBySchool.set(r.school, new Map())
+    const byMonth = spotBySchool.get(r.school)
+    if (!byMonth.has(r.month)) byMonth.set(r.month, [])
+    byMonth.get(r.month).push(r)
+  }
+  return { meta, mentors, schools, visits, months, blocks, kpiIndex, sspSchools, adoptedBy, spot, spotMonths, spotBySchool }
+}
+
+function decodeSpot(rows, fields, schools) {
+  if (!fields) return []
+  const f = Object.fromEntries(fields.map((name, i) => [name, i]))
+  return rows.map((r) => {
+    const school = schools[r[f.school]]
+    return {
+      month: r[f.month],
+      school: r[f.school],
+      block: school.block,
+      stype: school.type,
+      ssp: !!school.ssp,
+      cls: r[f.cls],
+      n: r[f.assessed],
+      saksham: r[f.saksham],
+      madhyam: r[f.madhyam], // null before Apr 2026: the level didn't exist yet
+      pragatisheel: r[f.pragatisheel],
+      zero: r[f.zero],
+    }
+  })
 }
 
 // Share of applicable KPIs answered "yes", 0-100. null if none applied.
@@ -307,6 +338,79 @@ export function sspCoverage(data, visits, { block = '', stype = '' } = {}) {
     perArp,
     arpsFull: [...perArp.values()].filter((p) => p.own === p.adopted).length,
   }
+}
+
+// ---------- Spot assessments ----------
+// When an ARP visits a school they assess a few students on the spot. The data
+// comes per school per month (per class from Aug 2026), not per visit, and does
+// not say which mentor did the assessment.
+
+export const SPOT_LEVELS = [
+  { key: 'saksham', label: 'Saksham', en: 'proficient', color: '#104281' },
+  { key: 'madhyam', label: 'Madhyam', en: 'intermediate', color: '#5598e7' },
+  { key: 'pragatisheel', label: 'Pragatisheel', en: 'progressing', color: '#b7d3f6' },
+  { key: 'zero', label: 'Zero score', en: 'no correct answers', color: '#eb6834' },
+]
+
+// Same filters as visits. Spot rows have no subject; the class is known only
+// from Aug 2026, so a grade filter keeps just the rows recorded with a class.
+export function applySpotFilters(spot, filters, { period = true } = {}) {
+  return spot.filter((r) => {
+    if (period && filters.ptype !== 'all' && periodKey(r.month, filters.ptype) !== filters.pval) return false
+    if (filters.block && r.block !== filters.block) return false
+    if (filters.stype && r.stype !== filters.stype) return false
+    if (filters.grade && (r.cls == null || !gradeMatches(r.cls, filters.grade))) return false
+    if (filters.ssp && !r.ssp) return false
+    return true
+  })
+}
+
+// Students assessed and the share at each level (pooled over rows).
+export function spotSummary(rows) {
+  const out = { rows: rows.length, n: 0, schools: new Set(rows.map((r) => r.school)).size }
+  for (const l of SPOT_LEVELS) out[l.key] = null // stays null if no row has the level (Madhyam before Apr 2026)
+  for (const r of rows) {
+    out.n += r.n
+    for (const l of SPOT_LEVELS) if (r[l.key] != null) out[l.key] += r[l.key]
+  }
+  for (const l of SPOT_LEVELS) out[`${l.key}Pct`] = out.n && out[l.key] != null ? (out[l.key] / out.n) * 100 : null
+  return out
+}
+
+// Spot rows behind one visit: same school and month, and the visit's grade when
+// the rows have a class (Aug 2026 on) and one matches; otherwise the whole school-month.
+export function spotForVisit(data, v) {
+  const rows = data.spotBySchool.get(v.school)?.get(v.month)
+  if (!rows) return null
+  const same = rows.filter((r) => r.cls != null && r.cls === v.grade)
+  return same.length ? same : rows
+}
+
+// Spot rows behind a set of visits, each row counted once.
+export function spotForVisits(data, visits) {
+  const out = new Set()
+  for (const v of visits) for (const r of spotForVisit(data, v) || []) out.add(r)
+  return [...out]
+}
+
+export function spotText(s) {
+  return s && s.n ? `${s.saksham}/${s.n} Saksham` : '—'
+}
+
+// Every month from the first visit or spot month to the last, for trend charts.
+export function allMonths(data) {
+  const ms = [...new Set([...data.months, ...data.spotMonths])].sort()
+  if (!ms.length) return []
+  const out = []
+  let [y, mo] = ms[0].split('-').map(Number)
+  for (let key = ms[0]; key <= ms[ms.length - 1]; key = `${y}-${String(mo).padStart(2, '0')}`) {
+    out.push(key)
+    if (++mo > 12) {
+      mo = 1
+      y++
+    }
+  }
+  return out
 }
 
 // ---------- Formatting ----------

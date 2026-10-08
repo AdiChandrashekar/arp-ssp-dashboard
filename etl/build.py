@@ -35,6 +35,8 @@ TRACKER_EXTRACT = os.path.join(ROOT, "data", "ssp", "ssp_schools.csv.gz")
 # Fixes to the tracker's ARP sheets that haven't reached the source sheet yet
 # (missing UDISE codes, schools added or dropped by an ARP).
 TRACKER_CORRECTIONS = os.path.join(ROOT, "data", "ssp", "corrections.csv")
+# Mentor spot assessments (school x month level counts), imported by etl/import_spot.py.
+SPOT = os.path.join(ROOT, "data", "spot", "spot.csv.gz")
 
 def norm(s):
     return re.sub(r"\s+", " ", unicodedata.normalize("NFC", str(s))).strip()
@@ -684,6 +686,35 @@ def build_district(raw, tracked):
     return dict(mentors=mentors, schools=schools, teachers=teachers, visits=visits)
 
 
+SPOT_FIELDS = ["month", "school", "cls", "assessed", "saksham", "madhyam", "pragatisheel", "zero"]
+
+
+def load_spot(path):
+    """data/spot/spot.csv.gz -> {district_key: DataFrame}."""
+    if not os.path.exists(path):
+        print(f"  WARNING: no spot assessments at {path}")
+        return {}
+    df = pd.read_csv(path, dtype={"district_key": str, "month": str, "udise": str})
+    print(f"  spot: {len(df)} rows, {df['month'].min()} to {df['month'].max()}")
+    return {dk: g for dk, g in df.groupby("district_key")}
+
+
+def spot_rows(spot, schools):
+    """One district's spot rows in SPOT_FIELDS order, keyed to the school list."""
+    if spot is None or not len(spot):
+        return []
+    sid = {s["udise"]: s["id"] for s in schools}
+    known = spot["udise"].isin(sid)
+    if (~known).any():
+        print(f"    NOTE: {int((~known).sum())} spot rows for {spot.loc[~known, 'udise'].nunique()} schools not in the school list skipped")
+    out = []
+    for r in spot[known].itertuples():
+        out.append([r.month, sid[r.udise]] + [None if pd.isna(x) else int(x) for x in
+                   (r.cls, r.assessed, r.saksham, r.madhyam, r.pragatisheel, r.zero)])
+    out.sort(key=lambda r: (r[0], r[1], r[2] or 0))
+    return out
+
+
 # Compact row layout: teacher names are interned into a list, and all KPI
 # answers for a visit are packed into one string ("1" yes, "0" no, "-" n/a)
 # in the order of meta.kpis.
@@ -704,6 +735,7 @@ def main():
     print(f"  exports: {RAW_DIR}")
     if not tracker:
         print(f"  WARNING: no SSP tracker at {TRACKER}; building every district without SSP data")
+    spot = load_spot(SPOT)
     raw, skipped = read_exports(RAW_DIR)
     dkeys = raw[COL["district"][0]].map(district_key)
 
@@ -725,6 +757,7 @@ def main():
                      ssp=t["ssp"], po=t["po"], **({"sspArpName": t["sspArpName"], "sspArp": None} if t["ssp"] else {}))
                 for i, (u, t) in enumerate(sorted(tracked.items()))])
         v = built["visits"]
+        built["spot"] = spot_rows(spot.get(dk), built["schools"])
         meta = dict(
             generatedAt=generated,
             district=name,
@@ -737,6 +770,9 @@ def main():
             kpis=[dict(id=k["id"], group=k["group"], label=k["label"], forms=list(k["cols"].keys()),
                        inScore=k["group"] in ("fln", "upper") and k["id"] not in SCORE_EXCLUDE) for k in KPIS],
             visitFields=VISIT_FIELDS,
+            spotFields=SPOT_FIELDS,
+            spotFrom=built["spot"][0][0] if built["spot"] else None,
+            spotTo=built["spot"][-1][0] if built["spot"] else None,
         )
         fname = f"{slug(name)}.json"
         with open(os.path.join(out_dir, fname), "w", encoding="utf-8") as fh:
@@ -749,7 +785,7 @@ def main():
             dateTo=meta["dateTo"],
         ))
         print(f"    -> {fname}: {len(v)} visits, {len(built['mentors'])} mentors, "
-              f"{len(built['schools'])} schools, {len(ssp)} SSP")
+              f"{len(built['schools'])} schools, {len(ssp)} SSP, {len(built['spot'])} spot rows")
     with open(os.path.join(OUT_DIR, "index.json"), "w", encoding="utf-8") as fh:
         json.dump(dict(generatedAt=generated, districts=index, skippedFiles=skipped), fh, ensure_ascii=False, indent=1)
     old = os.path.join(OUT_DIR, "dashboard.json")

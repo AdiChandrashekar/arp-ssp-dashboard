@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { applyFilters, fmt, groupBy, mean, periodLabel } from '../data.js'
+import { applyFilters, applySpotFilters, fmt, groupBy, mean, periodLabel, SPOT_LEVELS, spotSummary } from '../data.js'
 import { DataTable, Section, StatCard, Tabs } from '../components/ui.jsx'
+import { LevelBar, SpotBadge } from '../components/charts.jsx'
 import { GradeChips } from './MentorDetail.jsx'
 
 export default function Schools({ data, filters, nav }) {
@@ -11,6 +12,8 @@ export default function Schools({ data, filters, nav }) {
       (s) => (!filters.block || s.block === filters.block) && (!filters.stype || s.type === filters.stype) && (!filters.ssp || s.ssp),
     )
     const inPeriod = groupBy(applyFilters(data.visits, filters), (v) => v.school)
+    const spotRows = applySpotFilters(data.spot, filters)
+    const spot = groupBy(spotRows, (r) => r.school)
     const allTime = groupBy(applyFilters(data.visits, { ...filters, grade: '', subject: '' }, { period: false }), (v) => v.school)
     const rows = universe.map((s) => {
       const vs = inPeriod.get(s.id) || []
@@ -27,9 +30,10 @@ export default function Schools({ data, filters, nav }) {
         adoptedBy: s.ssp ? (s.sspArp != null ? data.mentors[s.sspArp].name : s.sspArpName) : null,
         fln: mean(vs.map((v) => v.flnScore)),
         up: mean(vs.map((v) => v.upScore)),
+        spot: spotSummary(spot.get(s.id) || []),
       }
     })
-    return { rows }
+    return { rows, spotTotal: spotSummary(spotRows) }
   }, [data, filters])
 
   const pl = periodLabel(filters)
@@ -47,6 +51,14 @@ export default function Schools({ data, filters, nav }) {
 
       <div className="stats">
         <StatCard label={filters.ssp ? 'ARP Focus Schools' : 'Schools'} value={fmt.int(m.rows.length)} sub={filters.ssp ? 'from the adoption tracker' : 'in the district school list'} />
+        <StatCard
+          className="stat-spot"
+          label="Spot assessment · Saksham"
+          value={fmt.pct(m.spotTotal.sakshamPct)}
+          sub={m.spotTotal.n ? `${fmt.int(m.spotTotal.saksham)} of ${fmt.int(m.spotTotal.n)} students in ${fmt.int(m.spotTotal.schools)} schools · ${pl}` : `no spot assessments in ${pl}`}
+        >
+          <LevelBar s={m.spotTotal} levels={SPOT_LEVELS} wide />
+        </StatCard>
         <StatCard label="Visited" value={fmt.int(visited.length)} sub={`${fmt.pct((visited.length / Math.max(1, m.rows.length)) * 100)} of schools · ${pl}`} />
         <StatCard label="Not visited" value={fmt.int(notVisited.length)} sub={`in ${pl}`} status={notVisited.length === 0 ? 'good' : 'neutral'} onClick={() => setView('not')} />
         <StatCard label="Visited 3+ times" value={fmt.int(three)} sub={`in ${pl}`} />
@@ -62,7 +74,7 @@ export default function Schools({ data, filters, nav }) {
           { value: 'not', label: `Not visited (${notVisited.length})` },
         ]}
       />
-      <Section sub="The school list comes from the adoption tracker (every school in the district) plus any other school that got a visit. Click a school to see every visit.">
+      <Section sub="The school list comes from the adoption tracker (every school in the district) plus any other school that got a visit. Click a school to see every visit. Spot columns: students assessed by visiting mentors in the period and the share at Saksham level.">
         <DataTable
           key={view}
           csvName={`schools-${view}-${pl}.csv`}
@@ -82,6 +94,7 @@ export default function Schools({ data, filters, nav }) {
               render: (s) => (s.ssp ? <span className="pill pill-ssp" title="ARP Focus School">{s.adoptedBy || 'Focus'}</span> : ''),
             },
             { key: 'visits', label: `Visits (${pl})`, value: (s) => s.visits, align: 'right' },
+            { key: 'spotSak', label: `Spot · Saksham (${pl})`, value: (s) => s.spot.sakshamPct, align: 'right', render: (s) => <SpotBadge s={s.spot} levels={SPOT_LEVELS} />, csv: (s) => (s.spot.n ? `${s.spot.saksham}/${s.spot.n}` : '') },
             { key: 'grades', label: 'Grades observed', value: (s) => s.grades.join(', '), render: (s) => <GradeChips grades={s.grades} />, sortable: false },
             { key: 'mentors', label: 'Mentors', value: (s) => s.mentors, align: 'right' },
             ...(filters.ssp ? [{ key: 'ownVisits', label: 'By own ARP', value: (s) => s.ownVisits, align: 'right' }] : []),

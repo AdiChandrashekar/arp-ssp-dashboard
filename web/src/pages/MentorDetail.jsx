@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { applyFilters, countBy, fmt, groupBy, kpiRate, mean, mentorSummary, monthLabel, monthShort, monthsInPeriod, periodLabel, statusFor, TREND_FROM, trendMonths } from '../data.js'
+import { allMonths, applyFilters, countBy, fmt, groupBy, kpiRate, mean, mentorSummary, monthLabel, monthShort, monthsInPeriod, periodLabel, SPOT_LEVELS, spotForVisit, spotForVisits, spotSummary, spotText, statusFor, TREND_FROM, trendMonths } from '../data.js'
 import { Card, DataTable, Empty, Pill, Section, StatCard, Tabs } from '../components/ui.jsx'
-import { BarList, Heatmap, LineChart, MonthCalendar, yMaxWithTarget } from '../components/charts.jsx'
+import { BarList, Heatmap, LevelBar, LineChart, SpotBadge, MonthCalendar, StackedShareChart, yMaxWithTarget } from '../components/charts.jsx'
 
 const FORM_LABEL = { FM: 'FLN Maths', FH: 'FLN Hindi', G: 'Gr 4-8', O: 'Gr 1-3 other' }
 
@@ -32,6 +32,9 @@ export default function MentorDetail({ data, filters, setFilters, nav, id, back 
       dayCounts: countBy(inPeriod, (v) => v.date),
       gs: countBy(inPeriod, (v) => `${v.grade}|${v.subject}`),
       stypes: countBy(inPeriod, (v) => v.stype),
+      spot: spotSummary(spotForVisits(data, inPeriod)),
+      peerSpot: spotSummary(spotForVisits(data, peers)),
+      spotByMonth: groupBy(spotForVisits(data, allTime), (r) => r.month),
     }
   }, [data, filters, id, mentor, isArp, target])
 
@@ -50,6 +53,8 @@ export default function MentorDetail({ data, filters, setFilters, nav, id, back 
     }
   })
   const repeatSchools = schoolRows.filter((s) => s.visits > 1).length
+  for (const r of schoolRows) r.spot = spotSummary(spotForVisits(data, m.inPeriod.filter((v) => v.school === r.id)))
+  const spotTrend = allMonths(data).filter((mo) => mo >= TREND_FROM && mo <= data.months[data.months.length - 1])
 
   return (
     <div>
@@ -70,6 +75,14 @@ export default function MentorDetail({ data, filters, setFilters, nav, id, back 
           sub={isArp ? `target ${m.periodTarget} · ${fmt.pct(progress)} achieved` : `in ${pl}`}
           status={isArp ? statusFor(progress, 100, 50) : 'neutral'}
         />
+        <StatCard
+          className="stat-spot"
+          label="Spot assessment · Saksham"
+          value={fmt.pct(m.spot.sakshamPct)}
+          sub={m.spot.n ? `${m.spot.saksham} of ${m.spot.n} students in ${m.spot.schools} schools visited · peers ${fmt.pct(m.peerSpot.sakshamPct)}` : 'no spot assessment in the schools visited'}
+        >
+          <LevelBar s={m.spot} levels={SPOT_LEVELS} wide />
+        </StatCard>
         <StatCard label="Schools visited" value={fmt.int(sum.schools)} sub={`${repeatSchools} visited more than once`} />
         <StatCard label="Days in the field" value={fmt.int(sum.days)} sub={`avg ${fmt.int(sum.avgMin)} min per visit`} />
         <StatCard label="Grades 1-3 FLN share" value={fmt.pct(sum.flnShare)} sub="of visits were FLN Hindi/Maths classes" />
@@ -97,6 +110,20 @@ export default function MentorDetail({ data, filters, setFilters, nav, id, back 
         )}
       </div>
 
+      <Card className="card-spot" title="Spot assessments in schools this mentor visited" sub="Students assessed in the school (and class, from Aug 2026) in the months this mentor visited it · the data doesn't name who assessed · click a month to open it">
+        {m.spotByMonth.size ? (
+          <StackedShareChart
+            xs={spotTrend.map((mo) => ({ key: mo, label: monthShort(mo) }))}
+            levels={SPOT_LEVELS}
+            value={(mo) => (m.spotByMonth.has(mo) ? spotSummary(m.spotByMonth.get(mo)) : null)}
+            selectedKey={filters.ptype === 'month' ? filters.pval : null}
+            onSelect={(mo) => data.months.includes(mo) && setFilters({ ptype: 'month', pval: mo })}
+          />
+        ) : (
+          <Empty>No spot assessments recorded in the schools this mentor visited.</Empty>
+        )}
+      </Card>
+
       <div className="grid-2">
         <Card title="Grades and subjects observed" sub={pl}>
           <Heatmap
@@ -114,6 +141,7 @@ export default function MentorDetail({ data, filters, setFilters, nav, id, back 
           <StypeBars stypes={m.stypes} total={m.inPeriod.length} onSelect={(t) => setFilters({ stype: t })} />
         </Card>
       </div>
+
 
       <KpiProfile data={data} visits={m.inPeriod} peers={m.peers} />
 
@@ -142,6 +170,7 @@ export default function MentorDetail({ data, filters, setFilters, nav, id, back 
               { key: 'stype', label: 'Type', value: (v) => v.stype },
               { key: 'grade', label: 'Grade', value: (v) => v.grade, align: 'right' },
               { key: 'subject', label: 'Subject', value: (v) => v.subject },
+              { key: 'spot', label: 'Spot · Saksham', value: (v) => spotSummary(spotForVisit(data, v) || []).sakshamPct, align: 'right', render: (v) => <SpotBadge s={spotSummary(spotForVisit(data, v) || [])} levels={SPOT_LEVELS} />, csv: (v) => spotText(spotSummary(spotForVisit(data, v) || [])) },
               { key: 'form', label: 'Form', value: (v) => FORM_LABEL[v.form] },
               { key: 'teacher', label: 'Teacher observed', value: (v) => v.teacher },
               { key: 'minutes', label: 'Minutes', value: (v) => v.minutes, align: 'right', render: (v) => fmt.int(v.minutes) },
@@ -164,6 +193,7 @@ export default function MentorDetail({ data, filters, setFilters, nav, id, back 
               { key: 'block', label: 'Block', value: (s) => s.block },
               { key: 'type', label: 'Type', value: (s) => s.type },
               { key: 'visits', label: 'Visits', value: (s) => s.visits, align: 'right' },
+              { key: 'spotSak', label: 'Spot · Saksham', value: (s) => s.spot.sakshamPct, align: 'right', render: (s) => <SpotBadge s={s.spot} levels={SPOT_LEVELS} />, csv: (s) => (s.spot.n ? `${s.spot.saksham}/${s.spot.n}` : '') },
               { key: 'grades', label: 'Grades observed', value: (s) => s.grades.join(', '), render: (s) => <GradeChips grades={s.grades} /> },
               { key: 'last', label: 'Last visit', value: (s) => s.last, render: (s) => fmt.date(s.last) },
             ]}
@@ -232,7 +262,7 @@ function AdoptedSchools({ data, id, filters, nav }) {
   return (
     <Card
       title={`ARP Focus Schools · ${adopted.length}`}
-      sub="Each cell: visits that month · ★ = this ARP visited · grades observed · FLN / Gr 4-8 practice score"
+      sub="Each cell: visits that month · ★ = this ARP visited · FLN / Gr 4-8 practice score · grades observed · S = students at Saksham level in that month's spot assessment"
     >
       <div className="heatmap-wrap">
         <table className="heatmap matrix">
@@ -252,6 +282,7 @@ function AdoptedSchools({ data, id, filters, nav }) {
                 </th>
                 {months.map((mo) => {
                   const vs = bySm.get(`${s.id}|${mo}`)
+                  const sp = spotSummary(data.spotBySchool.get(s.id)?.get(mo) || [])
                   if (!vs) return <td key={mo} className="hm-cell matrix-cell"><span className="mc-empty">—</span></td>
                   const own = vs.some((v) => v.ownArp)
                   const sc = mean(vs.map((v) => v.flnScore ?? v.upScore))
@@ -267,6 +298,7 @@ function AdoptedSchools({ data, id, filters, nav }) {
                         {own && <sup>★</sup>} <span className="muted">{fmt.pct(sc)}</span>
                       </div>
                       <div className="mc-grades">{[...new Set(vs.map((v) => v.grade).filter(Boolean))].sort().map((g) => `G${g}`).join(' ')}</div>
+                      {sp.n > 0 && <div className="spot-cell" title={`Spot assessment: ${sp.saksham} of ${sp.n} students Saksham`}>S {sp.saksham}/{sp.n}</div>}
                     </td>
                   )
                 })}

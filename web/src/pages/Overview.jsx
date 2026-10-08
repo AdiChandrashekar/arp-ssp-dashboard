@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import { applyFilters, attendance, countBy, fmt, groupBy, kpiRate, mean, monthShort, monthLabel, monthsInPeriod, inPeriod, periodLabel, sspCoverage, statusFor } from '../data.js'
+import { allMonths, applyFilters, applySpotFilters, attendance, countBy, fmt, groupBy, kpiRate, mean, monthShort, monthLabel, monthsInPeriod, inPeriod, periodLabel, SPOT_LEVELS, spotSummary, sspCoverage, statusFor } from '../data.js'
 import { Card, DataTable, Section, StatCard } from '../components/ui.jsx'
-import { BarList, ColumnChart, Heatmap } from '../components/charts.jsx'
+import { BarList, ColumnChart, Heatmap, LevelBar, StackedShareChart } from '../components/charts.jsx'
 
 export default function Overview({ data, filters, setFilters, nav }) {
   const { mentors, schools, meta } = data
@@ -38,6 +38,11 @@ export default function Overview({ data, filters, setFilters, nav }) {
       return { mo, visits: vs.length, arpVisits: arp.length, active, perArp: active ? arp.length / active : 0 }
     })
 
+    // Spot assessments: the period's, and every month for the trend
+    const spotPeriod = applySpotFilters(data.spot, filters)
+    const spotByMonth = groupBy(applySpotFilters(data.spot, filters, { period: false }), (r) => r.month)
+    const spotByBlock = groupBy(spotPeriod, (r) => r.block)
+
     // Block table
     const byBlock = groupBy(inPeriod, (v) => v.block)
     const blockRows = data.blocks
@@ -58,6 +63,7 @@ export default function Overview({ data, filters, setFilters, nav }) {
           fln: mean(vs.map((v) => v.flnScore)),
           up: mean(vs.map((v) => v.upScore)),
           att: attendance(vs, 'stuPres', 'stuEnr'),
+          spot: spotSummary(spotByBlock.get(b) || []).sakshamPct,
         }
       })
       .filter((r) => r.visits > 0 || r.arps > 0)
@@ -69,6 +75,7 @@ export default function Overview({ data, filters, setFilters, nav }) {
     return {
       inPeriod, months, periodTarget, roster, arpVisits, perArp, meeting, zero,
       schoolUniverse, schoolsVisited, monthly, blockRows, gs, stypes, ssp,
+      spot: spotSummary(spotPeriod), spotByMonth,
       fln: mean(inPeriod.map((v) => v.flnScore)),
       up: mean(inPeriod.map((v) => v.upScore)),
       lpReady: kpiRate(inPeriod, data.kpiIndex.lp_ready).pct,
@@ -112,6 +119,15 @@ export default function Overview({ data, filters, setFilters, nav }) {
 
       <div className="stats">
         <StatCard label="Total visits" value={fmt.int(m.inPeriod.length)} sub={`${fmt.int(m.arpVisits.length)} by ARPs · ${fmt.int(m.inPeriod.length - m.arpVisits.length)} by DIET/SRG`} />
+        <StatCard
+          className="stat-spot"
+          label="Spot assessment · Saksham"
+          value={fmt.pct(m.spot.sakshamPct)}
+          sub={m.spot.n ? `${fmt.int(m.spot.saksham)} of ${fmt.int(m.spot.n)} students in ${fmt.int(m.spot.schools)} schools · zero score ${fmt.pct(m.spot.zeroPct)}` : `no spot assessments in ${pl}`}
+          onClick={() => nav('schools')}
+        >
+          <LevelBar s={m.spot} levels={SPOT_LEVELS} wide />
+        </StatCard>
         <StatCard label="Active ARPs" value={`${active} / ${m.roster.length}`} sub={`${m.zero} ARPs with no visit`} status={statusFor(m.roster.length ? (active / m.roster.length) * 100 : null, 95, 80)} />
         {filters.ssp ? (
           <>
@@ -129,6 +145,21 @@ export default function Overview({ data, filters, setFilters, nav }) {
         <StatCard label="Gr 4-8 lesson plan ready" value={fmt.pct(m.lpReady)} sub={`practice score ${fmt.pct(m.up)} in classes with a plan`} status={statusFor(m.lpReady, 85, 70)} onClick={() => nav('kpis')} />
         <StatCard label="Student attendance" value={fmt.pct(m.stuAtt)} sub={`Teacher attendance ${fmt.pct(m.tchAtt)} · avg visit ${fmt.int(m.avgMin)} min`} />
       </div>
+
+      <Card
+        className="card-spot"
+        title="Spot assessments, month by month"
+        sub={`Students assessed by visiting mentors, by level · Madhyam was added in Apr 2026${data.meta.spotTo > data.months[data.months.length - 1] ? ` · spot data runs to ${monthLabel(data.meta.spotTo)}, ahead of the visit data` : ''} · click a month to open it`}
+      >
+        <StackedShareChart
+          xs={allMonths(data).map((mo) => ({ key: mo, label: monthShort(mo) }))}
+          levels={SPOT_LEVELS}
+          value={(mo) => (m.spotByMonth.has(mo) ? spotSummary(m.spotByMonth.get(mo)) : null)}
+          selectedKey={filters.ptype === 'month' ? filters.pval : null}
+          onSelect={(mo) => data.months.includes(mo) && setFilters({ ptype: 'month', pval: mo })}
+          note={filters.grade ? 'Grade filter: only spot assessments recorded with a class (Aug 2026 on) are shown.' : null}
+        />
+      </Card>
 
       <div className="grid-2">
         <Card title="Visits per month" sub="All mentors · click a month to open it">
@@ -185,6 +216,7 @@ export default function Overview({ data, filters, setFilters, nav }) {
             { key: 'visits', label: 'Visits', value: (r) => r.visits, align: 'right', render: (r) => fmt.int(r.visits) },
             { key: 'perArp', label: 'Visits / ARP', value: (r) => r.perArp, align: 'right', render: (r) => fmt.num1(r.perArp) },
             { key: 'meeting', label: 'ARPs at target', value: (r) => r.meeting, align: 'right', render: (r) => fmt.pct(r.meeting) },
+            { key: 'spot', label: 'Spot · Saksham', value: (r) => r.spot, align: 'right', render: (r) => <b>{fmt.pct(r.spot)}</b> },
             { key: 'schools', label: 'Schools visited', value: (r) => r.schools, align: 'right', render: (r) => `${r.schools} / ${r.bSchools}` },
             { key: 'fln', label: 'FLN score', value: (r) => r.fln, align: 'right', render: (r) => fmt.pct(r.fln) },
             { key: 'up', label: 'Gr 4-8 score', value: (r) => r.up, align: 'right', render: (r) => fmt.pct(r.up) },

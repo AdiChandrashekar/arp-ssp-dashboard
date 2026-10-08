@@ -9,6 +9,7 @@ on:
     paths:
       - 'data/exports/**'
       - 'data/ssp/ssp_schools.csv.gz'
+      - 'data/spot/spot.csv.gz'
       - 'etl/**'
   workflow_dispatch:
 

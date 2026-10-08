@@ -3,11 +3,12 @@ import { useMemo, useState } from 'react'
 const STATUS_TEXT = { good: 'On track', warning: 'Needs attention', critical: 'Off track' }
 const STATUS_ICON = { good: '●', warning: '▲', critical: '■' }
 
-export function StatCard({ label, value, sub, status = 'neutral', onClick }) {
+export function StatCard({ label, value, sub, status = 'neutral', onClick, className = '', children }) {
   return (
-    <div className={`stat stat-${status}${onClick ? ' clickable' : ''}`} onClick={onClick}>
+    <div className={`stat stat-${status}${onClick ? ' clickable' : ''} ${className}`} onClick={onClick}>
       <div className="stat-label">{label}</div>
       <div className="stat-value">{value}</div>
+      {children}
       {sub && <div className="stat-sub">{sub}</div>}
       {status !== 'neutral' && (
         <div className={`stat-status status-${status}`}>

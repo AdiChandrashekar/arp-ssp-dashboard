@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
-import { applyFilters, fmt, groupBy, kpiRate, mean, monthLabel, monthShort, sspCoverage, statusFor } from '../data.js'
+import { applyFilters, applySpotFilters, fmt, groupBy, kpiRate, mean, monthLabel, monthShort, SPOT_LEVELS, spotSummary, sspCoverage, statusFor } from '../data.js'
 import { Card, DataTable, Empty, Section, StatCard, Tabs } from '../components/ui.jsx'
-import { Heatmap, LineChart, seqColor } from '../components/charts.jsx'
+import { Heatmap, LevelBar, LineChart, seqColor } from '../components/charts.jsx'
 
 const FORM_LABEL = { FM: 'FLN Maths', FH: 'FLN Hindi', G: 'Gr 4-8', O: 'Gr 1-3 other' }
 
@@ -12,12 +12,22 @@ function metricOptions(data) {
     { value: 'own', label: 'Visited by own ARP' },
     { value: 'fln', label: 'FLN practice score' },
     { value: 'up', label: 'Gr 4-8 practice score' },
+    { value: 'spot', label: 'Spot assessment · % Saksham' },
     ...data.meta.kpis.filter((k) => k.group !== 'school').map((k) => ({ value: k.id, label: `${k.group === 'fln' ? 'FLN' : 'Gr 4-8'} · ${k.label}` })),
   ]
 }
 
+// The school-month's spot assessment (all classes) behind a cell's visits.
+function cellSpot(data, vs) {
+  return spotSummary(data.spotBySchool.get(vs[0].school)?.get(vs[0].month) || [])
+}
+
 function cellValue(data, metric, vs) {
   if (!vs?.length) return null
+  if (metric === 'spot') {
+    const sp = cellSpot(data, vs)
+    return sp.n ? { value: sp.sakshamPct / 100, text: String(Math.round(sp.sakshamPct)) } : { value: null, text: '–' }
+  }
   if (metric === 'visits') return { value: Math.min(vs.length, 3) / 3, text: String(vs.length) }
   if (metric === 'own') {
     const own = vs.some((v) => v.ownArp)
@@ -33,6 +43,7 @@ function cellValue(data, metric, vs) {
 
 function cellNumber(data, metric, vs) {
   if (!vs?.length) return null
+  if (metric === 'spot') return cellSpot(data, vs).sakshamPct
   if (metric === 'visits') return vs.length
   if (metric === 'own') return vs.some((v) => v.ownArp) ? 1 : 0
   if (metric === 'fln') return mean(vs.map((v) => v.flnScore))
@@ -65,8 +76,11 @@ export default function Ssp({ data, filters, nav }) {
     const otherByMonth = groupBy(otherV, (v) => v.month)
     const bySchoolMonth = groupBy(sspV, (v) => `${v.school}|${v.month}`)
     const coverage = months.map((mo) => sspCoverage(data, sspByMonth.get(mo) || [], filters))
+    const spot = applySpotFilters(data.spot, { ...filters, ptype: 'all', ssp: '' }).filter((r) => r.month >= meta.sspFrom)
+    const spotSsp = groupBy(spot.filter((r) => r.ssp), (r) => r.month)
+    const spotOther = groupBy(spot.filter((r) => !r.ssp), (r) => r.month)
     const inScope = data.sspSchools.filter((s) => (!filters.block || s.block === filters.block) && (!filters.stype || s.type === filters.stype))
-    return { sspV, otherV, sspByMonth, otherByMonth, bySchoolMonth, coverage, inScope }
+    return { sspV, otherV, sspByMonth, otherByMonth, bySchoolMonth, coverage, inScope, spotSsp, spotOther }
   }, [data, filters, meta.sspFrom, months])
 
   if (!data.sspSchools.length) return <Empty>No ARP Focus Schools for {meta.district} in the tracker.</Empty>
@@ -132,12 +146,32 @@ export default function Ssp({ data, filters, nav }) {
 
       <div className="stats">
         <StatCard label="Adopted schools" value={fmt.int(m.inScope.length)} sub={`by ${adoptingArps.length} ARPs · ${data.sspSchools.filter((s) => s.po).length} also PO-adopted`} />
+        <StatCard
+          className="stat-spot"
+          label={`Spot · Saksham · ${monthShort(fm)}`}
+          value={fmt.pct(spotSummary(m.spotSsp.get(fm) || []).sakshamPct)}
+          sub={`${fmt.int(spotSummary(m.spotSsp.get(fm) || []).n)} students in focus schools · other schools ${fmt.pct(spotSummary(m.spotOther.get(fm) || []).sakshamPct)}`}
+        >
+          <LevelBar s={spotSummary(m.spotSsp.get(fm) || [])} levels={SPOT_LEVELS} wide />
+        </StatCard>
         <StatCard label={`Visited · ${monthShort(fm)}`} value={`${cov.visited} / ${cov.schools}`} sub={`${fmt.pct(pct(cov.visited, cov.schools))} got any visit`} status={statusFor(pct(cov.visited, cov.schools), 90, 70)} />
         <StatCard label={`By own ARP · ${monthShort(fm)}`} value={`${cov.own} / ${cov.schools}`} sub={`${fmt.pct(pct(cov.own, cov.schools))} of adopted schools`} status={statusFor(pct(cov.own, cov.schools), 90, 70)} />
         <StatCard label="ARPs covering all schools" value={`${cov.arpsFull} / ${cov.perArp.size}`} sub={`visited every adopted school in ${monthShort(fm)}`} />
         <StatCard label="Visits to adopted schools" value={fmt.int(fSsp.length)} sub={`${fmt.pct(pct(fSsp.filter((v) => v.ownArp).length, fSsp.length))} made by the adopting ARP`} />
         <StatCard label="FLN score · focus vs others" value={fmt.pct(mean(fSsp.map((v) => v.flnScore)))} sub={`other schools ${fmt.pct(mean(fOther.map((v) => v.flnScore)))}`} />
       </div>
+
+      <Card className="card-spot" title="Spot assessments · students at Saksham level" sub="Share of students assessed by visiting mentors who were Saksham, in ARP Focus Schools and other schools · click a month to focus the cards on it">
+        <LineChart
+          xs={months.map((mo) => ({ key: mo, label: monthShort(mo) }))}
+          series={[
+            { key: 'ssp', label: 'ARP Focus Schools', short: 'Focus', values: months.map((mo) => spotSummary(m.spotSsp.get(mo) || []).sakshamPct), notes: months.map((mo) => `(${fmt.int(spotSummary(m.spotSsp.get(mo) || []).n)} students)`) },
+            { key: 'other', label: 'Other schools', short: 'other', values: months.map((mo) => spotSummary(m.spotOther.get(mo) || []).sakshamPct), notes: months.map((mo) => `(${fmt.int(spotSummary(m.spotOther.get(mo) || []).n)} students)`) },
+          ]}
+          selectedKey={fm}
+          onSelect={setFocus}
+        />
+      </Card>
 
       <div className="grid-2">
         <Card title="Adopted-school coverage, month by month" sub="% of adopted schools with at least one visit, and with a visit from their own ARP">
@@ -163,6 +197,7 @@ export default function Ssp({ data, filters, nav }) {
           />
         </Card>
       </div>
+
 
       <Card title="Classroom practices in adopted schools, month by month" sub="% of observations in ARP Focus Schools · last column: difference from other schools in the focused month (percentage points)">
         <Heatmap
@@ -259,7 +294,7 @@ export default function Ssp({ data, filters, nav }) {
 
       {view === 'matrix' ? (
         <div className="grid-matrix">
-          <Card title={`Adopted schools · ${metricLabel}`} sub="Grades observed shown under each cell · ★ = visited by own ARP · click a cell for the visits behind it">
+          <Card title={`Adopted schools · ${metricLabel}`} sub="Grades observed shown under each cell · S = students Saksham in that month's spot assessment · ★ = visited by own ARP · click a cell for the visits behind it">
             <div className="heatmap-wrap matrix-wrap">
               <table className="heatmap matrix">
                 <thead>
@@ -305,6 +340,10 @@ export default function Ssp({ data, filters, nav }) {
                                   <>
                                     <div className="mc-main">{c?.text}{own && metric !== 'own' ? <sup>★</sup> : null}</div>
                                     <div className="mc-grades">{grades.map((g) => `G${g}`).join(' ')}</div>
+                                    {metric !== 'spot' && (() => {
+                                      const sp = cellSpot(data, vs)
+                                      return sp.n ? <div className="spot-cell" title={`Spot assessment: ${sp.saksham} of ${sp.n} students Saksham`}>S {sp.saksham}/{sp.n}</div> : null
+                                    })()}
                                   </>
                                 ) : (
                                   <span className="mc-empty">—</span>
@@ -322,7 +361,7 @@ export default function Ssp({ data, filters, nav }) {
             </div>
           </Card>
           <Card title={cell ? `${schools[cell.school].name} · ${monthLabel(cell.month)}` : 'Visit details'} sub={cell ? `Adopted by ${arpName(schools[cell.school])}` : 'Click a cell in the grid'} className="detail-card">
-            {cell ? <VisitDetails data={data} visits={cellVisits} nav={nav} /> : <Empty>Select a school-month to see which ARP visited, in which grade, and what they recorded.</Empty>}
+            {cell ? <VisitDetails data={data} visits={cellVisits} nav={nav} spot={data.spotBySchool.get(cell.school)?.get(cell.month) || []} /> : <Empty>Select a school-month to see which ARP visited, in which grade, and what they recorded.</Empty>}
           </Card>
         </div>
       ) : (
@@ -367,10 +406,27 @@ export default function Ssp({ data, filters, nav }) {
   )
 }
 
-function VisitDetails({ data, visits, nav }) {
+function VisitDetails({ data, visits, nav, spot }) {
   const kpis = data.meta.kpis
+  const sp = spotSummary(spot)
   return (
     <div className="visit-details">
+      <div className="vd">
+        <div className="vd-head"><b>Spot assessment</b></div>
+        {sp.n ? (
+          <>
+            <div className="vd-score">
+              <b>{sp.saksham}</b> of {sp.n} students Saksham ({fmt.pct(sp.sakshamPct)}) <LevelBar s={sp} levels={SPOT_LEVELS} />
+            </div>
+            <div className="vd-sub muted">
+              {SPOT_LEVELS.filter((l) => sp[l.key] != null).map((l) => `${l.label} ${sp[l.key]}`).join(' · ')}
+              {spot.some((r) => r.cls != null) && ` · classes ${[...new Set(spot.map((r) => r.cls))].sort().join(', ')}`}
+            </div>
+          </>
+        ) : (
+          <div className="vd-sub muted">None recorded this month.</div>
+        )}
+      </div>
       {visits
         .slice()
         .sort((a, b) => a.date.localeCompare(b.date))

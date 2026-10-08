@@ -372,3 +372,120 @@ export function useDebounced(value, ms = 150) {
   }, [value, ms])
   return v
 }
+
+/**
+ * 100% stacked columns: one column per x, split into ordered levels.
+ * xs: [{ key, label }], levels: [{ key, label, color }],
+ * value(xKey) -> { n, [levelKey]: count } | null (null = no data, empty slot).
+ */
+export function StackedShareChart({ xs, levels, value, height = 230, onSelect, selectedKey, note }) {
+  const [ref, width] = useWidth()
+  const [tip, setTip] = useState(null)
+  const pad = { l: 40, r: 12, t: 12, b: 28 }
+  const plotW = width - pad.l - pad.r
+  const plotH = height - pad.t - pad.b
+  const slot = plotW / Math.max(1, xs.length)
+  const barW = Math.max(6, Math.min(36, slot - 6))
+  const y = (p) => pad.t + plotH - (p / 100) * plotH
+  const labelEvery = Math.ceil(xs.length / Math.max(1, Math.floor(plotW / 48)))
+  const pct = (d, k) => (d.n ? ((d[k] || 0) / d.n) * 100 : 0)
+
+  return (
+    <div className="chart" ref={ref} onMouseLeave={() => setTip(null)}>
+      <div className="legend">
+        {levels.map((l) => (
+          <span key={l.key} className="legend-item">
+            <span className="legend-swatch" style={{ background: l.color }} />
+            {l.label}
+          </span>
+        ))}
+      </div>
+      <svg width={width} height={height} role="img" aria-label="Stacked share chart">
+        {[0, 25, 50, 75, 100].map((t) => (
+          <g key={t}>
+            <line x1={pad.l} x2={width - pad.r} y1={y(t)} y2={y(t)} className={t === 0 ? 'axis' : 'grid'} />
+            <text x={pad.l - 6} y={y(t)} className="tick" textAnchor="end" dominantBaseline="middle">{t}%</text>
+          </g>
+        ))}
+        {xs.map((xv, i) => {
+          const d = value(xv.key)
+          const cx = pad.l + slot * i + slot / 2
+          const dim = selectedKey && selectedKey !== xv.key
+          let acc = 0
+          return (
+            <g key={xv.key} opacity={dim ? 0.35 : 1}>
+              {d && d.n > 0 &&
+                levels.map((l) => {
+                  const p = pct(d, l.key)
+                  const top = y(acc + p)
+                  const h = y(acc) - top
+                  acc += p
+                  // 1px surface gap between segments
+                  return h > 0 ? <rect key={l.key} x={cx - barW / 2} y={top} width={barW} height={Math.max(0, h - 1)} fill={l.color} /> : null
+                })}
+              <rect
+                x={pad.l + slot * i}
+                y={pad.t}
+                width={slot}
+                height={plotH}
+                fill="transparent"
+                style={{ cursor: onSelect ? 'pointer' : 'default' }}
+                onClick={onSelect ? () => onSelect(xv.key) : undefined}
+                onMouseMove={(e) => {
+                  const box = ref.current.getBoundingClientRect()
+                  setTip({
+                    x: Math.min(e.clientX - box.left + 12, width - 200),
+                    y: e.clientY - box.top - 10,
+                    content: (
+                      <>
+                        <b>{xv.label}</b>
+                        {d && d.n ? (
+                          <>
+                            <div>{d.n.toLocaleString('en-IN')} students assessed</div>
+                            {levels.map((l) => (
+                              <div key={l.key}>
+                                <span className="legend-swatch" style={{ background: l.color }} /> {l.label}: {d[l.key] == null ? '—' : `${Math.round(pct(d, l.key))}% (${d[l.key]})`}
+                              </div>
+                            ))}
+                          </>
+                        ) : (
+                          <div>No spot assessment</div>
+                        )}
+                      </>
+                    ),
+                  })
+                }}
+              />
+              {i % labelEvery === 0 && (
+                <text x={cx} y={height - 8} className={`tick${selectedKey === xv.key ? ' tick-selected' : ''}`} textAnchor="middle">{xv.label}</text>
+              )}
+            </g>
+          )
+        })}
+      </svg>
+      {note && <div className="chart-note">{note}</div>}
+      <Tooltip tip={tip} />
+    </div>
+  )
+}
+
+// Thin inline bar of level shares, for table cells. s: spotSummary()-like totals.
+export function LevelBar({ s, levels, wide = false }) {
+  if (!s || !s.n) return wide ? null : <span className="muted">—</span>
+  return (
+    <span className={`levelbar${wide ? ' levelbar-wide' : ''}`} title={levels.map((l) => `${l.label} ${s[l.key] ?? 0}`).join(' · ') + ` of ${s.n}`}>
+      {levels.map((l) => (s[l.key] ? <span key={l.key} style={{ width: `${(s[l.key] / s.n) * 100}%`, background: l.color }} /> : null))}
+    </span>
+  )
+}
+
+// Table cell for a spot result: "3/5" Saksham with the level bar beside it.
+export function SpotBadge({ s, levels }) {
+  if (!s || !s.n) return <span className="muted">—</span>
+  return (
+    <span className="spot-badge">
+      <b>{s.saksham ?? 0}/{s.n}</b>
+      <LevelBar s={s} levels={levels} />
+    </span>
+  )
+}

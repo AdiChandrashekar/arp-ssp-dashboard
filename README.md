@@ -34,6 +34,14 @@ The raw files never leave Workspace. Only redacted CSVs reach GitHub.
 
 Fixes that haven't reached the source tracker yet (a missing UDISE code, a school an ARP added or dropped) go in `data/ssp/corrections.csv` (actions `set_udise`, `add`, `remove`). The build applies them on top of the tracker and prints a note for any that no longer match, e.g. once the source sheet has been fixed.
 
+**Spot assessments.** The "Mentor Spot Raw Data" workbooks (one sheet per month, every UP district) hold the results of the quick student assessments mentors do on a visit. The results are counted per school per month, and per class from Aug 2026. Import them with:
+
+```bash
+python etl/import_spot.py "Aug_26 onwards _ Mentor Spot Raw Data.xlsx" ...
+```
+
+This keeps the programme districts and writes `data/spot/spot.csv.gz`, the committed extract that the build reads. Months in the new workbooks replace the same months in the extract, and other months are kept, so a new monthly file can be imported on its own. Commit the extract; the GitHub Action rebuilds the data.
+
 ### Exporter setup (once)
 
 1. Create a GitHub fine-grained token with access to **only this repository** and **Contents: Read and write**.
