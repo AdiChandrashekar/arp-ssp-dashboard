@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How ARPs Fill the Form</title>
+<title>Supportive Supervision Habits</title>
 <meta name="description" content="How ARPs in 10 UP districts fill in the classroom-observation form, question by question, and the recording styles that emerge.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -57,7 +57,7 @@
   <canvas id="herocanvas" aria-hidden="true"></canvas>
   <div class="wrap">
     <div class="kicker">NIPUN Bharat · ARP supportive supervision · Uttar Pradesh</div>
-    <h1><span data-bind="nArps">605</span> ARPs, one form, <mark>three ways of filling it in</mark></h1>
+    <h1>Breaking down <mark>supportive supervision habits</mark></h1>
     <p class="lead">ARPs fill in a classroom observation form on every school visit. Read answer by answer, each ARP's forms follow habits that hold month after month: how often they mark a practice as seen, whether they use the middle answers such as "some" and "partial", how often they end the Grade 4–8 form at its first question, and what they write down for attendance.</p>
     <div class="counters">
       <div class="counter"><b class="num" data-count="arpVisits">0</b><span>ARP observations</span></div>
@@ -183,7 +183,7 @@
   const dshare = d3.rollups(typed, (v) => d3.mean(v, (d) => d.type === "uniform"), (d) => d.district).sort((a, b) => b[1] - a[1]);
   const q = (k, p) => d3.quantile(typed.map((d) => d[k]).filter((x) => x != null).sort(d3.ascending), p);
   const binds = {
-    range: data.range, nArps: fmtInt(data.arps.length), nTyped: fmtInt(typed.length), arpVisits: fmtInt(meta.arpVisits),
+    range: data.range, nTyped: fmtInt(typed.length), arpVisits: fmtInt(meta.arpVisits),
     relVariety: meta.reliability.variety.toFixed(2), relNoPlan: meta.reliability.noPlan.toFixed(2),
     "u-allyes": pct(mean("uniform", "flnAllYes")), "v-allyes": pct(mean("varied", "flnAllYes")),
     "u-partial": pct(mean("uniform", "partial")), "v-partial": pct(mean("varied", "partial")),
