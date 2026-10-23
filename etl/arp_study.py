@@ -28,6 +28,8 @@ import build  # noqa: E402  (shares the export reader and column checks)
 ROOT = build.ROOT
 EXPORTS = sys.argv[1] if len(sys.argv) > 1 else build.EXPORTS_DIR
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "web", "public", "study", "data.json")
+SPOT = os.path.join(ROOT, "data", "spot", "spot.csv.gz")
+LEVELS = ["saksham", "madhyam", "pragatisheel", "zero"]
 
 YES = {"हाँ", "हां"}
 MIN_VISITS, MIN_FLN = 60, 30
@@ -81,6 +83,9 @@ BADGES = [
     dict(id="contra", label="Contradicts an earlier answer 40%+ of the time it could", metric="contradictions", op=">=", value=0.4),
     dict(id="factflip", label="Changes fixed school facts on 15%+ of revisits", metric="factFlip", op=">=", value=0.15),
     dict(id="repeat", label="Returns to the same teachers on 35%+ of visits", metric="teacherRepeat", op=">=", value=0.35),
+    dict(id="allsaksham", label="Marks every child Saksham in 35%+ of spot tests", metric="spotAllSaksham", op=">=", value=0.35),
+    dict(id="over5", label="Tests more than 5 children in 25%+ of spot tests", metric="spotOver5", op=">=", value=0.25),
+    dict(id="early", label="Two-thirds or more of FLN observations in the first period", metric="firstPeriod", op=">=", value=0.67),
 ]
 
 
@@ -132,9 +137,53 @@ def frame(raw):
     d["all_present"] = (d.tpres == d.tpos).astype(float).where(d.tpos > 0)
     d["class_full"] = (d.cls_pres == d.cls_enr).astype(float).where(d.cls_enr > 0)
     d["round5"] = (d.pres % 5 == 0).astype(float).where(d.pres > 0)
-    d["guide_week_other"] = np.where(d.form == "FM", raw[17].fillna("").str.startswith("अन्य"),
-                            np.where(d.form == "FH", raw[63].fillna("").str.startswith("अन्य"), np.nan))
+    # Sandarshika week marked "other" (only asked when the teacher has the Sandarshika).
+    week = pd.Series(np.where(d.form == "FM", raw[17], np.where(d.form == "FH", raw[63], None)), index=d.index)
+    d["week_other"] = week.map(lambda v: float(v.startswith("अन्य")) if isinstance(v, str) else np.nan)
+    # Lesson period the observation fell in (Hindi and Maths forms record it).
+    period = pd.Series(np.where(d.form == "FM", raw[19], np.where(d.form == "FH", raw[65], None)), index=d.index)
+    d["first_period"] = period.map(lambda v: float(v.strip().endswith("1")) if isinstance(v, str) else np.nan)
+    # Designation of the teacher observed.
+    desig = raw[151]
+    d["head_teacher"] = desig.map(lambda v: float(v.startswith("प्रधान")) if isinstance(v, str) else np.nan)
+    d["shiksha_mitra"] = desig.map(lambda v: float(v.startswith("शिक्षा")) if isinstance(v, str) else np.nan)
     return d
+
+
+def spot_summary(spot, sg, P):
+    """System-wide spot-assessment figures for the spot page."""
+    tot = lambda x: [int(x.assessed.sum())] + [int(x[k].sum()) for k in LEVELS]  # noqa: E731
+    by_month = [[m] + tot(x) + [int(len(x))] for m, x in sg.groupby("month")]
+    names = {build.district_key(n): n for n in P.district.dropna().unique()}
+    by_dist = {names.get(dk, dk): {m: r3(x.saksham.sum() / x.assessed.sum()) for m, x in g.groupby("month")}
+               for dk, g in sg.groupby("district_key")}
+    cls = spot[spot.cls.notna()]
+    by_class = {int(c): tot(x) for c, x in cls.groupby("cls")}
+    # Does a school's result carry over to the next month? Same scale only (April 2026 on).
+    s = sg[sg.month >= "2026-04"].sort_values(["skey2", "month"]).copy()
+    s["prev"] = s.groupby("skey2").saksham_s.shift()
+    s["prev_m"] = s.groupby("skey2").mkey.shift()
+    k = s.dropna(subset=["prev", "mkey", "prev_m"])
+    same, diff = k[k.mkey == k.prev_m], k[k.mkey != k.prev_m]
+    rng = np.random.default_rng(5)
+    x = sg.dropna(subset=["mkey"]).copy()
+    halves = {u: rng.integers(2) for u in x.skey2.unique()}
+    x["h"] = x.skey2.map(halves)
+    rel = {}
+    for col, key in [("saksham_s", "spotSaksham"), ("sak_vs_block", "spotVsBlock"), ("all_sak", "spotAllSaksham"), ("over5", "spotOver5")]:
+        hh = x.groupby(["mkey", "h"])[col].agg(["mean", "count"]).unstack()
+        hh = hh[(hh["count"] >= 10).all(axis=1)]
+        rel[key] = r3(hh["mean"][0].corr(hh["mean"][1]), 2)
+    typed = P[P.type != "few"]
+    return dict(
+        byMonth=by_month, byDistrict=by_dist, byClass=by_class,
+        schoolMonths=int(len(sg)), children=int(sg.assessed.sum()), attributed=r3(sg.mkey.notna().mean()),
+        assessed5=r3((sg.assessed == 5).mean()),
+        carryOver=dict(sameArp=r3(same.saksham_s.corr(same.prev), 2), otherArp=r3(diff.saksham_s.corr(diff.prev), 2), pairs=int(len(k))),
+        reliability=rel,
+        corr=dict(allSak_flnLean=r3(typed.spotAllSaksham.corr(typed.flnLean), 2), allSak_variety=r3(typed.spotAllSaksham.corr(typed.variety), 2),
+                  vsBlock_flnLean=r3(typed.spotVsBlock.corr(typed.flnLean), 2)),
+    )
 
 
 def r3(x, n=3):
@@ -211,6 +260,10 @@ def main():
     P["flnShare"] = G.form.apply(lambda s: s.isin(["FM", "FH"]).mean())
     P["hindiShare"] = af.groupby("mkey").form.apply(lambda s: (s == "FH").mean())
     P["grade1Share"] = af.groupby("mkey").grade.apply(lambda s: (s == 1).mean())
+    P["firstPeriod"] = af.groupby("mkey").first_period.mean()
+    P["headTeacher"] = G.head_teacher.mean()
+    P["shikshaMitra"] = G.shiksha_mitra.mean()
+    P["weekOther"] = af.groupby("mkey").week_other.mean()
     cs = af.groupby("mkey")[["contra_pre", "contra_hit"]].sum()
     P["contradictions"] = (cs.contra_hit / cs.contra_pre.replace(0, np.nan)).where(cs.contra_pre >= 10)
     ra = rv[rv.mkey.isin(P.index)]
@@ -226,12 +279,44 @@ def main():
         return "varied" if r.variety >= HIGH_VARIETY else "mixed"
     P["type"] = P.apply(style, axis=1)
 
+    # ---- Spot assessments: children tested on a visit, counted per school and month.
+    # The data has no assessor column, so each school-month goes to the ARP who
+    # visited that school most often that month. Comparisons with the block use
+    # the same month, so the April 2026 change of levels doesn't count.
+    spot = pd.read_csv(SPOT, dtype={"udise": str, "month": str, "district_key": str})
+    spot = spot[spot.assessed > 0]
+    sg = spot.groupby(["district_key", "udise", "month"])[["assessed"] + LEVELS].sum().reset_index()
+    sg["skey2"] = sg.district_key + "|" + sg.udise
+    for k in LEVELS:
+        sg[k + "_s"] = sg[k] / sg.assessed
+    d["skey2"] = d.district.map(build.district_key) + "|" + d.udise
+    blocks = d.groupby("skey2").block.agg(lambda s: s.mode().iat[0])
+    sg["bkey"] = sg.district_key + "|" + sg.skey2.map(blocks).astype(str)
+    sg["sak_vs_block"] = sg.saksham_s - sg.groupby(["bkey", "month"]).saksham_s.transform("mean")
+    sg["all_sak"] = (sg.saksham == sg.assessed).astype(float)
+    sg["over5"] = (sg.assessed > 5).astype(float)
+    a2 = d[d.arp]
+    top = (a2.groupby(["skey2", "month", "mkey"]).size().rename("k").reset_index()
+           .sort_values("k").drop_duplicates(["skey2", "month"], keep="last"))
+    sg = sg.merge(top[["skey2", "month", "mkey"]], on=["skey2", "month"], how="left")
+    SG = sg.dropna(subset=["mkey"]).groupby("mkey")
+    P["spotN"] = SG.size()
+    P["spotSaksham"] = SG.saksham_s.mean()
+    P["spotVsBlock"] = SG.sak_vs_block.mean()
+    P["spotAllSaksham"] = SG.all_sak.mean()
+    P["spotZero"] = SG.zero_s.mean()
+    P["spotOver5"] = SG.over5.mean()
+    for c in ["spotSaksham", "spotVsBlock", "spotAllSaksham", "spotZero", "spotOver5"]:
+        P.loc[P.spotN.fillna(0) < 10, c] = np.nan
+    spot_mon = sg.dropna(subset=["mkey"]).groupby(["mkey", "month"]).saksham_s.mean()
+
     # Item profile per ARP: mean answer on every item (FLN on Grade 1-3 forms).
     items_meta = ([dict(id=k, label=l, group="fln", graded=k in GRADED) for k, l, *_ in FLN_ITEMS]
                   + [dict(id=k, label=l, group="g", graded=False) for k, l, _ in G_ITEMS]
                   + [dict(id=k, label=l, group="school", graded=False) for k, l, _ in FACT_ITEMS])
     prof = pd.concat([af.groupby("mkey")[fln_ids].mean(), ag.groupby("mkey")[g_ids].mean(), G[fact_ids].mean()], axis=1)
-    mon = a.groupby(["mkey", "month"]).agg(n=("date", "size")).join(af.groupby(["mkey", "month"]).fln_max.mean().rename("allyes"))
+    mon = (a.groupby(["mkey", "month"]).agg(n=("date", "size")).join(af.groupby(["mkey", "month"]).fln_max.mean().rename("allyes"))
+           .join(spot_mon.rename("sak"), how="left"))
 
     arps = []
     ids = {}
@@ -243,7 +328,7 @@ def main():
         for c in P.columns.drop(["name", "district", "block", "type"]):
             rec[c] = int(r[c]) if c in ("visits", "months", "schools", "flnForms") and not pd.isna(r[c]) else r3(r[c])
         rec["items"] = [r3(prof.at[k, i["id"]]) if k in prof.index else None for i in items_meta]
-        rec["monthly"] = [] if mm is None else [[mo, int(x.n), r3(x.allyes, 2)] for mo, x in mm.iterrows()]
+        rec["monthly"] = [] if mm is None else [[mo, int(x.n), r3(x.allyes, 2), r3(x.sak, 2)] for mo, x in mm.iterrows()]
         arps.append(rec)
 
     # ---- system-wide numbers for the story and the FLN page ----
@@ -274,6 +359,10 @@ def main():
         teacherRepeat=split(lambda x: x.groupby("mkey").seen_teacher.mean()),
         hindiShare=split(lambda x: fl_a(x).groupby("mkey").form.apply(lambda s: (s == "FH").mean())),
         minutes=split(lambda x: x.groupby("mkey").minutes.median()),
+        firstPeriod=split(lambda x: fl_a(x).groupby("mkey").first_period.mean()),
+        headTeacher=split(lambda x: x.groupby("mkey").head_teacher.mean()),
+        shikshaMitra=split(lambda x: x.groupby("mkey").shiksha_mitra.mean()),
+        weekOther=split(lambda x: fl_a(x).groupby("mkey").week_other.mean()),
     )
 
     # Fixed facts on revisits: observed changes vs what answering at random (at the rater's own yes-rate) would give.
@@ -329,6 +418,7 @@ def main():
                       variety_partial=r3(typed.variety.corr(typed.partial), 2)),
         ),
         fln=dict(byGrade=by_grade, options=options, contradictions=contra),
+        spot=spot_summary(spot, sg, P),
         arps=arps,
     )
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

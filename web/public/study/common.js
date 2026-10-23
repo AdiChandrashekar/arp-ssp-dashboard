@@ -14,6 +14,8 @@ window.S = (function () {
     grade: { 1: "#CFCAD6", 2: "#8C8798", 3: "#1E1B2E" },
     subject: { FH: "#C2185B", FM: "#0F8B8D" },
     opt: { top: "#1E1B2E", mid: "#8C8798", low: "#E4DDD1" },
+    // spot-assessment levels, best to worst
+    level: { saksham: "#0B5B52", madhyam: "#2E9A88", pragatisheel: "#9ED1C6", zero: "#5C5470" },
   };
   const fmtInt = d3.format(",");
   const pct = (x) => (x == null ? "–" : Math.round(x * 100) + "%");
@@ -49,6 +51,26 @@ window.S = (function () {
     { id: "hindiShare", label: "FLN observations in Hindi", short: "Hindi share", fmt: pct, domain: [0, 1],
       desc: "Of Grade 1–3 FLN observations, the share in Hindi. The rest are Maths." },
     { id: "grade1Share", label: "FLN observations in Grade 1", short: "Grade 1 share", fmt: pct, domain: [0, 1] , desc: "Of Grade 1–3 FLN observations, the share in Grade 1." },
+    { id: "firstPeriod", label: "FLN observations in the first period", short: "First period", fmt: pct, domain: [0, 1],
+      desc: "Of Grade 1–3 FLN observations, the share made during the first lesson period of the day. A rough guide to when the ARP arrives." },
+    { id: "headTeacher", label: "Observations of the head teacher", short: "Head teacher", fmt: pct, domain: [0, 0.4],
+      desc: "Share of observations where the teacher observed was the head teacher (pradhanadhyapak)." },
+    { id: "shikshaMitra", label: "Observations of a Shiksha Mitra", short: "Shiksha Mitra", fmt: pct, domain: [0, 0.4],
+      desc: "Share of observations where the teacher observed was a Shiksha Mitra." },
+    { id: "weekOther", label: "Sandarshika week marked \u201cother\u201d", short: "Week \u201cother\u201d", fmt: pct, domain: [0, 0.5],
+      desc: "On FLN forms where the teacher has the Sandarshika, how often the ARP records the week being taught as \u201cother\u201d instead of a week number." },
+    { id: "spotSaksham", label: "Spot tests: children marked Saksham", short: "Spot Saksham", fmt: pct, domain: [0, 1],
+      desc: "Average share of children the ARP marked Saksham in spot assessments, across their school-months. The levels changed in April 2026, so compare ARPs over the same months." },
+    { id: "spotVsBlock", label: "Spot Saksham vs block, same month", short: "Spot vs block", fmt: pts, domain: [-0.3, 0.3],
+      desc: "Points above or below the average Saksham share in the same block and month. This removes differences between months and blocks." },
+    { id: "spotAllSaksham", label: "Spot tests with every child Saksham", short: "All Saksham", fmt: pct, domain: [0, 0.7],
+      desc: "Share of the ARP's school-months where every child tested was marked Saksham." },
+    { id: "spotZero", label: "Spot tests: children scoring zero", short: "Spot zero", fmt: pct, domain: [0, 0.3],
+      desc: "Average share of children the ARP marked as zero scorers." },
+    { id: "spotOver5", label: "Spot tests with more than 5 children", short: "Over 5 tested", fmt: pct, domain: [0, 0.6],
+      desc: "Share of the ARP's school-months where more than the usual 5 children were tested." },
+    { id: "spotN", label: "Spot-assessment school-months", short: "Spot months", fmt: (x) => (x == null ? "–" : fmtInt(x)), domain: [0, 250],
+      desc: "School-months of spot assessments credited to the ARP: the ARP who visited the school most that month." },
     { id: "minutes", label: "Median visit length", short: "Minutes", fmt: (x) => (x == null ? "–" : Math.round(x) + " min"), domain: [100, 160], desc: "Time the app recorded per observation." },
     { id: "visitsPerMonth", label: "Visits per active month", short: "Visits/month", fmt: (x) => (x == null ? "–" : x.toFixed(1)), domain: [0, 35], desc: "Average observations in months with at least one." },
     { id: "targetShare", label: "Months at the 30-visit target", short: "At target", fmt: pct, domain: [0, 1], desc: "" },
@@ -123,9 +145,13 @@ window.S = (function () {
       <h4>Item by item: share marked as seen (dot) against the median ARP (line)</h4>
       <svg class="chart" id="pfitems"></svg>
       <h4>What and how much ${first} observes</h4>
-      <div class="stats">${["visitsPerMonth", "targetShare", "schools", "teacherRepeat", "hindiShare", "grade1Share", "minutes"].map(st).join("")}</div>
+      <div class="stats">${["visitsPerMonth", "targetShare", "schools", "teacherRepeat", "firstPeriod", "headTeacher", "shikshaMitra", "hindiShare", "grade1Share", "weekOther", "minutes"].map(st).join("")}</div>
+      <h4>Spot assessments</h4>
+      <div class="stats">${["spotSaksham", "spotVsBlock", "spotAllSaksham", "spotZero", "spotOver5", "spotN"].map(st).join("")}</div>
       <h4>Observations per month</h4><svg class="chart" id="spv" height="120"></svg>
       <h4>Share of FLN forms with every top answer, by month</h4><svg class="chart" id="spa" height="120"></svg>
+      <h4>Spot tests: share of children marked Saksham, by month</h4><svg class="chart" id="sps" height="120"></svg>
+      <p class="note">The Madhyam level was added in April 2026, so Saksham shares from then on are lower for everyone.</p>
       <div class="actions">
         <button class="btn" id="pfcmp">${inCmp ? "Remove from comparison" : "Add to comparison"}</button>
         <a href="explore.html#compare">Open the comparison</a>
@@ -212,8 +238,8 @@ window.S = (function () {
       s.append("g").attr("class", "axis").attr("transform", `translate(0,${h - m.b})`).call(d3.axisBottom(x).tickValues(months.filter((_, i) => i % every === 0)).tickFormat(mn).tickSizeOuter(0));
       const vals = d.monthly.filter((r) => r[key] != null);
       s.selectAll("rect.b").data(vals).join("rect").attr("class", "b").attr("x", (r) => x(r[0])).attr("width", x.bandwidth()).attr("rx", 2)
-        .attr("y", h - m.b).attr("height", 0).attr("fill", key === 1 ? "var(--text-2)" : COLOR[d.type])
-        .on("pointermove", (ev, r) => showTip(ev, `${mn(r[0])}: ${key === 1 ? r[1] + " observations" : pct(r[2])}`)).on("pointerleave", hideTip)
+        .attr("y", h - m.b).attr("height", 0).attr("fill", key === 1 ? "var(--text-2)" : key === 3 ? PAL.level.saksham : COLOR[d.type])
+        .on("pointermove", (ev, r) => showTip(ev, `${mn(r[0])}: ${key === 1 ? r[1] + " observations" : pct(r[key])}`)).on("pointerleave", hideTip)
         .transition().duration(reduce ? 0 : 600).delay((_, i) => i * 20).attr("y", (r) => y(r[key])).attr("height", (r) => y(0) - y(r[key]));
       if (target) {
         s.append("line").attr("class", "ref").attr("x1", m.l).attr("x2", w - m.r).attr("y1", y(target)).attr("y2", y(target));
@@ -222,6 +248,7 @@ window.S = (function () {
     };
     draw("spv", 1, Math.max(32, d3.max(d.monthly, (r) => r[1]) || 0), d3.format("d"), 30);
     draw("spa", 2, 1, d3.format(".0%"));
+    draw("sps", 3, 1, d3.format(".0%"));
   }
 
   function wireProfile() {

@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spot Assessments</title>
+<meta name="description" content="What ARPs record when they test children in spot assessments, by month, district, class and ARP.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+header.top { padding: 40px 0 10px; }
+header.top h1 { font-size: clamp(30px, 5vw, 56px); margin: 8px 0 10px; }
+.big { display: flex; flex-wrap: wrap; gap: 20px 44px; margin: 10px 0 0; }
+.big div b { display: block; font-family: var(--display); font-weight: 800; font-size: clamp(32px, 4.6vw, 52px); line-height: 1; letter-spacing: -.02em; }
+.big div span { font-size: 14px; color: var(--text-2); }
+.legendrow { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; color: var(--text-2); margin: 0 0 10px; }
+.legendrow i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.legendrow i.c { border-radius: 50%; }
+.duo { display: flex; flex-wrap: wrap; gap: 18px; }
+.duo .stat { flex: 1 1 220px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 2px 0 var(--line); border-radius: 18px; padding: 18px; }
+.duo .stat b { font-size: 44px; }
+.heatwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 2px 0 var(--line); padding: 10px 6px; }
+</style>
+</head>
+<body>
+<div id="tip" role="tooltip"></div>
+<nav class="nav"><div class="wrap"><b>ARP form study</b><a href="index.html">Story</a><a href="explore.html">Explore &amp; compare</a><a href="fln.html">FLN deep dive</a><a href="spot.html" class="on">Spot assessments</a><a href="../">Dashboard</a></div></nav>
+
+<header class="top"><div class="wrap">
+  <div class="kicker">Spot assessments · Grades 1–5</div>
+  <h1>What ARPs record in <mark>spot assessments</mark></h1>
+  <p class="lead">On a school visit, an ARP tests a few children and records each child's level: Saksham, Madhyam, Pragatisheel, or a zero score. This page looks at those results across months, districts, classes and ARPs. The data has no assessor column, so each school's results for a month are credited to the ARP who visited that school most often that month.</p>
+  <div class="big">
+    <div><b class="num" id="nChildren"></b><span>children tested</span></div>
+    <div><b class="num" id="nSchoolMonths"></b><span>school-months</span></div>
+    <div><b class="num" id="nFive"></b><span>of school-months tested exactly 5 children</span></div>
+    <div><b class="num" id="nAttr"></b><span>credited to an ARP's visit</span></div>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <section class="block">
+    <h2 class="sec" id="trendHead"></h2>
+    <p class="lead" id="trendText"></p>
+    <div class="legendrow" id="levelLegend"></div>
+    <div class="panel rise"><svg class="chart" id="trend"></svg></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">Saksham share by district <mark>and month</mark></h2>
+    <p class="lead">Each cell is the share of children marked Saksham in that district and month. The darker the teal, the higher the share. The drop in April 2026 in every district is the change of levels.</p>
+    <div class="heatwrap rise"><svg id="distHeat"></svg></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">Results by <mark>class</mark></h2>
+    <p class="lead" id="classText"></p>
+    <div class="panel rise"><svg class="chart" id="byClass"></svg></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">ARPs who fill in uniform forms <mark>also mark more children Saksham</mark></h2>
+    <p class="lead" id="styleText"></p>
+    <div class="legendrow" id="styleLegend"></div>
+    <div class="grid2">
+      <div class="panel rise"><h3 class="sub" style="margin-top:0">Every child Saksham, by recording style</h3><p class="note">Each dot is one ARP: the share of their school-months where every child tested was marked Saksham.</p><svg class="chart" id="allSakSwarm"></svg></div>
+      <div class="panel rise"><h3 class="sub" style="margin-top:0">Against how positive their FLN forms are</h3><p class="note">Across: points above or below the average FLN answer for the same form, grade and month. Up: share of school-months with every child Saksham.</p><svg class="chart" id="leanScatter"></svg></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">Most tests use exactly <mark>5 children</mark></h2>
+    <p class="lead" id="over5Text"></p>
+    <div class="panel rise"><svg class="chart" id="over5Swarm"></svg></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">A school's result <mark>barely carries over</mark> to the next month</h2>
+    <p class="lead" id="carryText"></p>
+    <div class="duo rise">
+      <div class="stat"><b class="num" id="carrySame"></b><span>correlation between a school's Saksham share in consecutive months, same ARP both months</span></div>
+      <div class="stat"><b class="num" id="carryOther"></b><span>the same, when a different ARP tested the school the next month</span></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">ARPs furthest from <mark>their block</mark></h2>
+    <p class="lead">Saksham share compared with other schools in the same block and month, for ARPs with at least 10 school-months of spot assessments. Click a name for the profile, or <a href="explore.html?sort=spotVsBlock&amp;dir=desc">sort every ARP in Explore</a>.</p>
+    <div class="grid2">
+      <div><h3 class="sub" style="margin-top:0">Most above their block</h3><div class="tablewrap"><table class="data" id="topTbl"></table></div></div>
+      <div><h3 class="sub" style="margin-top:0">Most below their block</h3><div class="tablewrap"><table class="data" id="botTbl"></table></div></div>
+    </div>
+    <p class="note" style="margin-top:14px">These numbers describe what ARPs recorded. With 5 children per test, a few school-months can move an ARP's figures a lot, and the crediting rule can give an ARP a test another rater ran.</p>
+  </section>
+</main>
+
+<footer><div class="wrap">Built from the mentor spot-assessment workbooks and mentor-app exports behind the <a href="../">ARP visit dashboard</a> · updated <span data-bind="generated"></span> · <a href="index.html#method">how this was measured</a></div></footer>
+<dialog id="pf" aria-labelledby="pfname"></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="common.js"></script>
+<script>
+(async function () {
+  const { STYLE_ORDER, COLOR, pct, pts, fmtInt } = S;
+  const data = await S.load();
+  const sp = data.spot, T = data.TYPES, $ = (id) => document.getElementById(id);
+  const LV = [["saksham", "Saksham"], ["madhyam", "Madhyam"], ["pragatisheel", "Pragatisheel"], ["zero", "Zero score"]];
+  const LCOL = S.PAL.level;
+  const mName = (m) => d3.timeFormat("%b %Y")(d3.timeParse("%Y-%m")(m));
+  const mShort = (m) => d3.timeFormat("%b %y")(d3.timeParse("%Y-%m")(m));
+
+  $("nChildren").textContent = fmtInt(sp.children);
+  $("nSchoolMonths").textContent = fmtInt(sp.schoolMonths);
+  $("nFive").textContent = pct(sp.assessed5);
+  $("nAttr").textContent = pct(sp.attributed);
+  $("levelLegend").innerHTML = LV.map(([k, l]) => `<span><i style="background:${LCOL[k]}"></i>${l}</span>`).join("");
+  $("styleLegend").innerHTML = STYLE_ORDER.map((t) => `<span><i class="c" style="background:${COLOR[t]}"></i>${T[t].label}</span>`).join("");
+
+  // ---- month by month ----
+  const months = sp.byMonth.map((r) => ({ m: r[0], n: r[1], saksham: r[2] / r[1], madhyam: r[3] / r[1], pragatisheel: r[4] / r[1], zero: r[5] / r[1], schools: r[6] }))
+    .filter((r) => r.schools >= 500);  // drop thin months (June holidays)
+  const first = months[0], peak = months.reduce((a, b) => (b.saksham > a.saksham ? b : a)), last = months[months.length - 1];
+  const change = months.find((r) => r.madhyam > 0);
+  $("trendHead").innerHTML = `Saksham share rose from ${pct(first.saksham)} to ${pct(peak.saksham)}, <mark>then the levels changed</mark>`;
+  $("trendText").textContent = `Between ${mName(first.m)} and ${mName(peak.m)} the share of children marked Saksham rose from ${pct(first.saksham)} to ${pct(peak.saksham)}. In ${mName(change.m)} the Madhyam level was added, and the Saksham share fell to ${pct(change.saksham)}. By ${mName(last.m)} it was ${pct(last.saksham)}, and ${pct(last.zero)} of children were recorded with a zero score. Months with fewer than 500 school-months tested are left out.`;
+  function drawTrend() {
+    const svg = d3.select("#trend"); svg.selectAll("*").remove();
+    const w = svg.node().getBoundingClientRect().width, h = Math.max(300, Math.min(420, w * 0.42)), m = { t: 30, r: 8, b: 30, l: 40 };
+    svg.attr("height", h);
+    const x = d3.scaleBand().domain(months.map((r) => r.m)).range([m.l, w - m.r]).padding(0.18), y = d3.scaleLinear().domain([0, 1]).range([h - m.b, m.t]);
+    svg.append("g").attr("class", "axis").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(d3.format(".0%")).tickSizeOuter(0));
+    const every = w < 560 ? 3 : 1;
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${h - m.b})`).call(d3.axisBottom(x).tickValues(months.map((r) => r.m).filter((_, i) => i % every === 0)).tickFormat(mShort).tickSizeOuter(0));
+    months.forEach((r) => {
+      let y0 = 0;
+      LV.forEach(([k, lab]) => {
+        const v = r[k]; if (!v) return;
+        svg.append("rect").attr("x", x(r.m)).attr("width", x.bandwidth()).attr("y", y(y0 + v)).attr("height", Math.max(0, y(y0) - y(y0 + v) - 1.5)).attr("fill", LCOL[k]).attr("rx", 2)
+          .on("pointermove", (ev) => S.showTip(ev, `<b>${mName(r.m)}</b>${lab}: ${pct(v)}<br><span class="m">${fmtInt(r.n)} children, ${fmtInt(r.schools)} school-months</span>`)).on("pointerleave", S.hideTip);
+        y0 += v;
+      });
+      if (x.bandwidth() > 26) svg.append("text").attr("x", x(r.m) + x.bandwidth() / 2).attr("y", y(r.saksham / 2) + 4).attr("text-anchor", "middle").attr("fill", "#FFFFFF").attr("font-size", 11.5).attr("font-weight", 600).attr("pointer-events", "none").text(pct(r.saksham));
+    });
+    const cx = x(change.m) - x.step() * x.padding() / 2 - 2;
+    svg.append("line").attr("class", "ref").attr("x1", cx).attr("x2", cx).attr("y1", m.t - 18).attr("y2", h - m.b);
+    svg.append("text").attr("class", "lbl-strong").attr("x", cx + 6).attr("y", m.t - 8).text("Madhyam level added");
+  }
+
+  // ---- district x month ----
+  function drawDist() {
+    const svg = d3.select("#distHeat"); svg.selectAll("*").remove();
+    const dists = Object.keys(sp.byDistrict).sort(), ms = months.map((r) => r.m);
+    const wrapW = document.querySelector("#distHeat").parentNode.getBoundingClientRect().width - 14;
+    const labW = 112, cellW = Math.max(38, (wrapW - labW) / ms.length), cellH = 30;
+    svg.attr("width", labW + cellW * ms.length).attr("height", 24 + dists.length * cellH);
+    const col = d3.scaleSequential(d3.interpolateRgbBasis(["#F1F7F5", "#9ED1C6", "#2E9A88", "#0B5B52"])).domain([0.1, 0.8]).clamp(true);
+    ms.forEach((mo, j) => svg.append("text").attr("class", "lbl").attr("x", labW + j * cellW + cellW / 2).attr("y", 14).attr("text-anchor", "middle").text(mShort(mo)));
+    dists.forEach((dn, i) => {
+      const yy = 24 + i * cellH;
+      svg.append("text").attr("class", "lbl-strong").attr("x", 4).attr("y", yy + cellH / 2 + 4).text(dn);
+      ms.forEach((mo, j) => {
+        const v = sp.byDistrict[dn][mo]; if (v == null) return;
+        svg.append("rect").attr("x", labW + j * cellW + 1).attr("y", yy + 1).attr("width", cellW - 2).attr("height", cellH - 2).attr("rx", 4).attr("fill", col(v))
+          .on("pointermove", (ev) => S.showTip(ev, `<b>${dn}, ${mName(mo)}</b>Saksham ${pct(v)}`)).on("pointerleave", S.hideTip);
+        svg.append("text").attr("x", labW + j * cellW + cellW / 2).attr("y", yy + cellH / 2 + 4).attr("text-anchor", "middle").attr("font-size", 11.5).attr("pointer-events", "none")
+          .attr("fill", v > 0.5 ? "#FFFFFF" : "var(--text)").text(Math.round(v * 100));
+      });
+    });
+  }
+
+  // ---- by class ----
+  const cls = Object.entries(sp.byClass).map(([c, r]) => ({ c: +c, n: r[0], saksham: r[1] / r[0], madhyam: r[2] / r[0], pragatisheel: r[3] / r[0], zero: r[4] / r[0] })).sort((a, b) => a.c - b.c);
+  if (cls.length) {
+    const lo = cls.filter((r) => r.c <= 3), hi = cls.filter((r) => r.c >= 4);
+    const z = (rs) => d3.sum(rs, (r) => r.zero * r.n) / d3.sum(rs, (r) => r.n);
+    $("classText").textContent = `Results have been recorded by class since August 2026. In Classes 4 and 5, ${pct(z(hi))} of children tested got a zero score, against ${pct(z(lo))} in Classes 1 to 3.`;
+  }
+  function drawClass() {
+    const svg = d3.select("#byClass"); svg.selectAll("*").remove();
+    const w = svg.node().getBoundingClientRect().width, rowH = 34, labW = 120, m = { t: 6, b: 30 };
+    svg.attr("height", m.t + cls.length * rowH + m.b);
+    const x = d3.scaleLinear().domain([0, 1]).range([labW, w - 8]);
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${m.t + cls.length * rowH + 4})`).call(d3.axisBottom(x).ticks(5).tickFormat(d3.format(".0%")).tickSizeOuter(0));
+    cls.forEach((r, i) => {
+      const yy = m.t + i * rowH;
+      svg.append("text").attr("class", "lbl-strong").attr("x", 0).attr("y", yy + rowH / 2 + 4).text(`Class ${r.c}`);
+      svg.append("text").attr("class", "lbl").attr("x", 60).attr("y", yy + rowH / 2 + 4).text(`${fmtInt(r.n)}`);
+      let x0 = 0;
+      LV.forEach(([k, lab]) => {
+        const v = r[k]; if (!v) return;
+        svg.append("rect").attr("x", x(x0) + (x0 > 0 ? 1.5 : 0)).attr("y", yy + 4).attr("height", rowH - 9).attr("rx", 3).attr("width", Math.max(0, x(x0 + v) - x(x0) - (x0 > 0 ? 1.5 : 0))).attr("fill", LCOL[k])
+          .on("pointermove", (ev) => S.showTip(ev, `<b>Class ${r.c}</b>${lab}: ${pct(v)}`)).on("pointerleave", S.hideTip);
+        if (x(x0 + v) - x(x0) > 34) svg.append("text").attr("x", x(x0) + 6).attr("y", yy + rowH / 2 + 4).attr("font-size", 11.5).attr("pointer-events", "none").attr("fill", k === "pragatisheel" ? "var(--text)" : "#FFFFFF").text(pct(v));
+        x0 += v;
+      });
+    });
+    svg.append("text").attr("class", "lbl").attr("x", 60).attr("y", m.t + cls.length * rowH + 24).text("children");
+  }
+
+  // ---- ARPs ----
+  const typed = data.typed.filter((d) => d.spotAllSaksham != null);
+  const byT = d3.group(typed, (d) => d.type), mean = (t, k) => d3.mean(byT.get(t) || [], (d) => d[k]);
+  $("styleText").textContent = `Each ARP's spot figures hold steady across their schools (r = ${sp.reliability.spotAllSaksham} for the share with every child Saksham). On average, Uniform ARPs record every child as Saksham in ${pct(mean("uniform", "spotAllSaksham"))} of their school-months, Mixed ARPs in ${pct(mean("mixed", "spotAllSaksham"))} and Varied ARPs in ${pct(mean("varied", "spotAllSaksham"))}. The more positive an ARP's FLN forms, the more often their spot tests come back all Saksham (r = ${sp.corr.allSak_flnLean}).`;
+  function swarm(svgSel, key, fmt, axisLabel, domain) {
+    const svg = d3.select(svgSel); svg.selectAll("*").remove();
+    const w = svg.node().getBoundingClientRect().width, rows = STYLE_ORDER.length, rowH = 90, m = { t: 6, b: 52, l: 82 };
+    svg.attr("height", m.t + rows * rowH + m.b);
+    const x = d3.scaleLinear().domain(domain).range([m.l, w - 10]).clamp(true);
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${m.t + rows * rowH + 4})`).call(d3.axisBottom(x).ticks(w < 500 ? 4 : 6).tickFormat(fmt).tickSizeOuter(0));
+    S.fitText(svg.append("text").attr("class", "lbl").attr("x", (m.l + w) / 2).attr("y", m.t + rows * rowH + 46).attr("text-anchor", "middle").text(axisLabel), w - 20);
+    STYLE_ORDER.forEach((t, i) => {
+      const yc = m.t + i * rowH + rowH / 2, pts_ = (byT.get(t) || []).filter((d) => d[key] != null).map((d) => ({ d, x: x(d[key]), y: yc }));
+      svg.append("text").attr("class", "lbl-strong").attr("x", 0).attr("y", yc + 4).text(T[t].label);
+      d3.forceSimulation(pts_).force("x", d3.forceX((p) => x(p.d[key])).strength(1)).force("y", d3.forceY(yc).strength(0.08)).force("c", d3.forceCollide(3.6)).stop().tick(160);
+      svg.append("g").selectAll("circle").data(pts_).join("circle").attr("class", "dot").attr("r", 3.2).attr("cx", (p) => p.x).attr("cy", (p) => Math.max(yc - rowH / 2 + 4, Math.min(yc + rowH / 2 - 4, p.y))).attr("fill", COLOR[t])
+        .on("pointermove", (ev, p) => S.showTip(ev, S.arpTip(p.d, `<br>${fmt(p.d[key])}`))).on("pointerleave", S.hideTip).on("click", (ev, p) => S.openProfile(p.d));
+      const med = d3.median(pts_, (p) => p.d[key]);
+      svg.append("line").attr("x1", x(med)).attr("x2", x(med)).attr("y1", yc - rowH / 2 + 6).attr("y2", yc + rowH / 2 - 6).attr("stroke", "var(--text)").attr("stroke-width", 2.5);
+    });
+  }
+  function drawLean() {
+    const svg = d3.select("#leanScatter"); svg.selectAll("*").remove();
+    const w = svg.node().getBoundingClientRect().width, h = 330, m = { t: 14, r: 10, b: 40, l: 46 };
+    svg.attr("height", h);
+    const pts_ = typed.filter((d) => d.flnLean != null);
+    const x = d3.scaleLinear().domain(d3.extent(pts_, (d) => d.flnLean)).nice().range([m.l, w - m.r]), y = d3.scaleLinear().domain([0, d3.max(pts_, (d) => d.spotAllSaksham)]).nice().range([h - m.b, m.t]);
+    y.ticks(5).forEach((t) => svg.append("line").attr("class", "gridline").attr("x1", m.l).attr("x2", w - m.r).attr("y1", y(t)).attr("y2", y(t)));
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${h - m.b})`).call(d3.axisBottom(x).ticks(5).tickFormat((v) => pts(v)).tickSizeOuter(0));
+    svg.append("g").attr("class", "axis").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(d3.format(".0%")).tickSizeOuter(0));
+    svg.append("text").attr("class", "lbl").attr("x", (m.l + w) / 2).attr("y", h - 6).attr("text-anchor", "middle").text("FLN positivity");
+    svg.append("g").selectAll("circle").data(pts_).join("circle").attr("class", "dot").attr("r", 3.4).attr("cx", (d) => x(d.flnLean)).attr("cy", (d) => y(d.spotAllSaksham)).attr("fill", (d) => COLOR[d.type])
+      .on("pointermove", (ev, d) => S.showTip(ev, S.arpTip(d, `<br>All Saksham ${pct(d.spotAllSaksham)} · positivity ${pts(d.flnLean)}`))).on("pointerleave", S.hideTip).on("click", (ev, d) => S.openProfile(d));
+  }
+  const ov = typed.filter((d) => d.spotOver5 != null);
+  $("over5Text").textContent = `${pct(sp.assessed5)} of school-months tested exactly 5 children. Testing more is a habit some ARPs keep (r = ${sp.reliability.spotOver5}): ${ov.filter((d) => d.spotOver5 >= 0.25).length} ARPs test more than 5 children in a quarter or more of their school-months, and ${ov.filter((d) => d.spotOver5 < 0.02).length} almost never do.`;
+
+  // ---- carry-over ----
+  $("carrySame").textContent = sp.carryOver.sameArp.toFixed(2);
+  $("carryOther").textContent = sp.carryOver.otherArp.toFixed(2);
+  $("carryText").textContent = `From April 2026, when the levels stayed the same, we compared each school's Saksham share with its share the month before (${fmtInt(sp.carryOver.pairs)} pairs of months). The link is weak either way, and weaker when a different ARP did the testing. With 5 children per test, a single month's result says little about a school.`;
+
+  // ---- tables ----
+  function table(id, rows) {
+    $(id).innerHTML = `<thead><tr><th>ARP</th><th>Block</th><th class="n">Vs block</th><th class="n">All Saksham</th><th class="n">Months</th></tr></thead><tbody>` +
+      rows.map((d) => `<tr data-id="${d.id}"><td><span class="chip" style="--c:${COLOR[d.type]}">${d.name}</span></td><td>${d.block}, ${d.district}</td><td class="n">${pts(d.spotVsBlock)}</td><td class="n">${pct(d.spotAllSaksham)}</td><td class="n">${d.spotN}</td></tr>`).join("") + "</tbody>";
+    $(id).querySelectorAll("tbody tr").forEach((tr) => (tr.onclick = () => S.openProfile(data.byId.get(tr.dataset.id))));
+  }
+  const ranked = typed.filter((d) => d.spotVsBlock != null).sort((a, b) => b.spotVsBlock - a.spotVsBlock);
+  table("topTbl", ranked.slice(0, 10)); table("botTbl", ranked.slice(-10).reverse());
+
+  const all = () => { drawTrend(); drawDist(); drawClass(); swarm("#allSakSwarm", "spotAllSaksham", d3.format(".0%"), "School-months with every child Saksham", [0, 0.7]); drawLean(); swarm("#over5Swarm", "spotOver5", d3.format(".0%"), "School-months with more than 5 children tested", [0, 0.8]); };
+  all(); addEventListener("resize", S.debounce(all, 200));
+  S.wireProfile();
+})();
+</script>
+</body>
+</html>

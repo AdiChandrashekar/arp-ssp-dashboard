@@ -30,7 +30,7 @@ td.cb, th.cb { width: 34px; text-align: center; }
 </head>
 <body>
 <div id="tip" role="tooltip"></div>
-<nav class="nav"><div class="wrap"><b>ARP form study</b><a href="index.html">Story</a><a href="explore.html" class="on">Explore &amp; compare</a><a href="fln.html">FLN deep dive</a><a href="../">Dashboard</a></div></nav>
+<nav class="nav"><div class="wrap"><b>ARP form study</b><a href="index.html">Story</a><a href="explore.html" class="on">Explore &amp; compare</a><a href="fln.html">FLN deep dive</a><a href="spot.html">Spot assessments</a><a href="../">Dashboard</a></div></nav>
 
 <header class="top"><div class="wrap">
   <div class="kicker">Explore</div>
@@ -151,7 +151,7 @@ td.cb, th.cb { width: 34px; text-align: center; }
   tabs.forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
 
   // ---- table ----
-  const COLS = ["variety", "flnLean", "flnAllYes", "partial", "contradictions", "noPlan", "gAllYes", "allPresent", "factFlip", "enrSame", "teacherRepeat", "hindiShare", "grade1Share", "minutes", "visitsPerMonth", "targetShare", "schools", "visits"];
+  const COLS = ["variety", "flnLean", "flnAllYes", "partial", "contradictions", "noPlan", "gAllYes", "allPresent", "factFlip", "enrSame", "weekOther", "spotSaksham", "spotVsBlock", "spotAllSaksham", "spotZero", "spotOver5", "teacherRepeat", "firstPeriod", "headTeacher", "shikshaMitra", "hindiShare", "grade1Share", "minutes", "visitsPerMonth", "targetShare", "schools", "visits"];
   function drawTable(rows) {
     const cmp = S.getCompare();
     const key = st.sort, dir = st.dir === "asc" ? 1 : -1;
@@ -253,7 +253,7 @@ td.cb, th.cb { width: 34px; text-align: center; }
     $("cpick").innerHTML = arps.map((d, i) => `<span class="p"><i style="background:${CMP_COLORS[i]}"></i>${d.name} <span class="note">${d.block}</span><button data-id="${d.id}" aria-label="Remove ${d.name}">×</button></span>`).join("");
     $("cpick").querySelectorAll("button").forEach((b) => b.onclick = () => S.setCompare(S.getCompare().filter((x) => x !== b.dataset.id)));
     if (!arps.length) { $("cbody").innerHTML = `<p class="note">Add ARPs with the search box above, by ticking them in the table, or with "Add to comparison" on a profile.</p>`; return; }
-    const rowsM = ["variety", "flnLean", "flnAllYes", "partial", "contradictions", "noPlan", "gAllYes", "allPresent", "factFlip", "enrSame", "teacherRepeat", "hindiShare", "grade1Share", "minutes", "visitsPerMonth", "targetShare", "schools", "visits"];
+    const rowsM = ["variety", "flnLean", "flnAllYes", "partial", "contradictions", "noPlan", "gAllYes", "allPresent", "factFlip", "enrSame", "weekOther", "spotSaksham", "spotVsBlock", "spotAllSaksham", "spotZero", "spotOver5", "teacherRepeat", "firstPeriod", "headTeacher", "shikshaMitra", "hindiShare", "grade1Share", "minutes", "visitsPerMonth", "targetShare", "schools", "visits"];
     $("cbody").innerHTML = `<div class="grid2">
       <div class="panel rise"><h3 class="sub" style="margin-top:0">Question by question</h3><p class="note">Each dot is one ARP's share of forms marking the practice as seen; the line marks the median ARP.</p><svg class="chart" id="cdots"></svg></div>
       <div><div class="tablewrap"><table class="data"><thead><tr><th>Measure</th>${arps.map((d, i) => `<th class="n"><span class="chip" style="--c:${CMP_COLORS[i]}">${d.name.split(" ")[0]}</span></th>`).join("")}<th class="n">Median ARP</th></tr></thead>
@@ -297,7 +297,7 @@ td.cb, th.cb { width: 34px; text-align: center; }
         .attr("fill", (d) => COLOR[d.type]).attr("opacity", 0.85).on("pointermove", (ev, d) => S.showTip(ev, S.arpTip(d, `<br>${mt.short}: ${mt.fmt(d[st.gm])}`))).on("pointerleave", S.hideTip).on("click", (ev, d) => S.openProfile(d));
       svg.append("line").attr("x1", x(gr.med)).attr("x2", x(gr.med)).attr("y1", yy - 9).attr("y2", yy + 9).attr("stroke", "var(--text)").attr("stroke-width", 3);
     });
-    const cols = ["variety", "flnLean", "partial", "contradictions", "noPlan", "allPresent", "factFlip", "teacherRepeat", "visitsPerMonth"];
+    const cols = ["variety", "flnLean", "partial", "contradictions", "noPlan", "spotSaksham", "spotVsBlock", "spotAllSaksham", "allPresent", "factFlip", "firstPeriod", "headTeacher", "teacherRepeat", "visitsPerMonth"];
     $("gtbl").innerHTML = `<thead><tr><th>${st.gby === "block" ? "Block" : "District"}</th><th class="n">ARPs</th><th>Style mix</th>${cols.map((c) => `<th class="n" title="${M[c].desc}">${M[c].short}</th>`).join("")}</tr></thead><tbody>` +
       groups.slice().sort((a, b) => a.k.localeCompare(b.k)).map((gr) => {
         const mix = STYLE_ORDER.map((t) => [t, gr.v.filter((d) => d.type === t).length / gr.v.length]);
