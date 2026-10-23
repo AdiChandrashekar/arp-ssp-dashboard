@@ -215,6 +215,9 @@ def clean_str(v):
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return None
     s = norm(v)
+    # Some source exports (May 2025 - Apr 2026) spell blank cells as the text "nan".
+    if s == "nan":
+        return None
     return s or None
 
 
