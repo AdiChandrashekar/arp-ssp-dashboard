@@ -68,7 +68,7 @@ header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
   </section>
 
   <section class="block">
-    <h2 class="sec">Part of the agreement between questions comes from <mark>the ARP</mark></h2>
+    <h2 class="sec">Forms that say yes once tend to <mark>say yes throughout</mark></h2>
     <p class="lead" id="corrText"></p>
     <div class="panel rise"><h3 class="sub" style="margin-top:0">FLN answers by recording style</h3><p class="note">Average share of forms marking each practice as seen, by recording style.</p><svg class="chart" id="bystyle"></svg></div>
   </section>
@@ -206,7 +206,7 @@ header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
   }
   // 5. recorder vs classroom
   const ic = data.meta.itemCorr;
-  $("corrText").textContent = `Across all FLN forms, the average correlation between two questions is ${ic.raw.toFixed(2)}. Within a single ARP's forms it falls to ${ic.withinArp.toFixed(2)}. So about ${pct(1 - ic.withinArp / ic.raw)} of the agreement between questions comes from which ARP filled in the form, and the rest from differences between the forms each ARP fills in.`;
+  $("corrText").textContent = `When a form marks one practice as seen, it usually marks the others as seen too. Some of that is the classroom, and some is the ARP: the link between any two questions is ${ic.raw.toFixed(2)} across all FLN forms, and ${ic.withinArp.toFixed(2)} once each ARP is looked at separately. So about ${pct(1 - ic.withinArp / ic.raw)} of the link comes from which ARP filled in the form.`;
   function drawByStyle() {
     const rows = items.map((it) => ({ label: it.label, vals: Object.fromEntries(STYLE_ORDER.map((t) => [t, d3.mean(data.typed.filter((d) => d.type === t), (d) => d.items[it.i])])) }));
     dotRows(d3.select("#bystyle"), rows, STYLE_ORDER.map((t) => ({ key: t, label: T[t].label, color: COLOR[t] })), { lo: 0.3 });
