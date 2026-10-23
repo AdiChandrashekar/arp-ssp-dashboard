@@ -28,33 +28,33 @@ header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
 <header class="top"><div class="wrap">
   <div class="kicker">Grades 1–3 · Hindi and Maths</div>
   <h1>Inside the <mark>FLN forms</mark></h1>
-  <p class="lead">The Grade 1–3 FLN forms are the core of supportive supervision: the Sandarshika, teaching material, the weekly tracker, the NIPUN Talika, workbooks and remedial work. This page looks at how ARPs answer them. Every comparison keeps grades and subjects apart, so a difference never comes from observing a different grade.</p>
+  <p class="lead">The Grade 1–3 FLN forms ask about the Sandarshika, teaching material, the weekly tracker, the NIPUN Talika, workbooks and remedial work. This page looks at how ARPs answer them, with grades and subjects kept apart in every comparison.</p>
   <div class="big">
     <div><b class="num" id="nForms"></b><span>Grade 1–3 FLN forms filled by ARPs</span></div>
     <div><b class="num" id="nHindi"></b><span>in Hindi</span></div>
     <div><b class="num" id="nMaths"></b><span>in Maths</span></div>
-    <div><b class="num" id="nG3"></b><span>in Grade 3 (Grades 1 and 2 dominate)</span></div>
+    <div><b class="num" id="nG3"></b><span>in Grade 3</span></div>
   </div>
 </div></header>
 
 <main class="wrap">
   <section class="block">
     <h2 class="sec">Grade <mark>barely changes</mark> the answers</h2>
-    <p class="lead">Share of forms marking each practice as seen, by grade. You might expect Grade 3 classrooms to look different from Grade 1. On most questions the three grades sit within 1–3 points of each other. The exceptions are workbook availability, which falls with grade, and reading-fluency records in Hindi, which rise.</p>
+    <p class="lead">Share of forms marking each practice as seen, by grade. On most questions Grades 1, 2 and 3 sit within 1 to 3 points of each other. Workbook availability falls as the grade rises, and Hindi reading-fluency records rise.</p>
     <div class="legendrow" id="gradeLegend"></div>
     <div class="grid2"><div class="panel rise"><h3 class="sub" style="margin-top:0">Hindi</h3><svg class="chart" id="gH"></svg></div><div class="panel rise"><h3 class="sub" style="margin-top:0">Maths</h3><svg class="chart" id="gM"></svg></div></div>
   </section>
 
   <section class="block">
     <h2 class="sec">Hindi and Maths forms differ more than grades do</h2>
-    <p class="lead">Average across Grades 1–3, weighting each grade equally so the subjects compare like for like. Maths forms report more peer learning, more teacher diaries and more participation.</p>
+    <p class="lead">Average across Grades 1 to 3, with each grade weighted equally so the two subjects compare like for like. Maths forms record more peer learning, more teacher diaries filled in and more children participating.</p>
     <div class="legendrow"><span><i style="background:#C2185B"></i>Hindi</span><span><i style="background:#0F8B8D"></i>Maths</span></div>
     <div class="panel rise"><svg class="chart" id="subj"></svg></div>
   </section>
 
   <section class="block">
-    <h2 class="sec">How the middle answers are used</h2>
-    <p class="lead">Six questions allow answers between yes and no. The bars show how answers split, separately for each grade. Across all of them, the top answer is chosen far more often than the middle ones.</p>
+    <h2 class="sec">The top answer <mark>dominates</mark> every graded question</h2>
+    <p class="lead">Six questions allow answers between yes and no. Each bar shows how the answers split in one grade.</p>
     <div class="controls"><label>Subject <select id="optForm"><option value="FH">Hindi</option><option value="FM">Maths</option></select></label></div>
     <div class="legendrow" id="optLegend"></div>
     <div class="panel rise"><svg class="chart" id="opts"></svg></div>
@@ -62,20 +62,20 @@ header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
 
   <section class="block">
     <h2 class="sec">Answers that <mark>contradict</mark> each other</h2>
-    <p class="lead">Some answers rule out later ones. Each bar shows, of the forms where the first answer was given, how many still gave the contradicting second answer.</p>
+    <p class="lead">Some answers rule out later ones. Each bar shows the share of forms that gave the second answer after giving the first.</p>
     <div class="panel rise"><svg class="chart" id="contra"></svg></div>
     <p class="note" id="contraStyle"></p>
   </section>
 
   <section class="block">
-    <h2 class="sec">Do the questions measure the classroom, or <mark>the recorder</mark>?</h2>
+    <h2 class="sec">Part of the agreement between questions comes from <mark>the ARP</mark></h2>
     <p class="lead" id="corrText"></p>
-    <div class="panel rise"><h3 class="sub" style="margin-top:0">FLN answers by recording style</h3><p class="note">Average share marked as seen per question, for each style.</p><svg class="chart" id="bystyle"></svg></div>
+    <div class="panel rise"><h3 class="sub" style="margin-top:0">FLN answers by recording style</h3><p class="note">Average share of forms marking each practice as seen, by recording style.</p><svg class="chart" id="bystyle"></svg></div>
   </section>
 
   <section class="block">
     <h2 class="sec">Every ARP's FLN answers</h2>
-    <p class="lead">One row per ARP, sorted by answer variety; darker red means marked as seen more often. Choose a district to see names. Click a row for the full profile.</p>
+    <p class="lead">One row per ARP, sorted by answer variety. The darker the red, the more often the ARP marked that practice as seen. Choose a district to see names, and click a row to open the profile.</p>
     <div class="controls"><label>District <select id="hd"><option value="">All districts</option></select></label>
       <label>Sort by <select id="hsort"><option value="variety">Answer variety</option><option value="flnLean">Positivity</option><option value="partial">In-between answers</option><option value="contradictions">Contradictions</option><option value="name">Name</option></select></label></div>
     <div class="heatwrap"><svg id="heat"></svg></div>
@@ -195,11 +195,11 @@ header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
       svg.append("text").attr("class", "lbl-strong").attr("x", x(r) + 6).attr("y", by + 16).text(`${pct(r)}`);
     });
     const m = (t) => d3.mean(data.typed.filter((d) => d.type === t), (d) => d.contradictions);
-    $("contraStyle").textContent = `By recording style, the average ARP gives a contradicting answer on ${STYLE_ORDER.map((t) => `${pct(m(t))} of chances (${T[t].label})`).join(", ")}.`;
+    $("contraStyle").textContent = `The average Uniform ARP gives a contradicting answer on ${pct(m("uniform"))} of the forms where one is possible, the average Mixed ARP on ${pct(m("mixed"))} and the average Varied ARP on ${pct(m("varied"))}.`;
   }
   // 5. recorder vs classroom
   const ic = data.meta.itemCorr;
-  $("corrText").textContent = `If the answers described each classroom, questions would agree with each other mostly because good classrooms do many things well. Across all FLN forms, the average correlation between two questions is ${ic.raw.toFixed(2)}. Within a single ARP's forms it drops to ${ic.withinArp.toFixed(2)}. About ${pct(1 - ic.withinArp / ic.raw)} of the agreement between questions comes from who filled in the form.`;
+  $("corrText").textContent = `Across all FLN forms, the average correlation between two questions is ${ic.raw.toFixed(2)}. Within a single ARP's forms it falls to ${ic.withinArp.toFixed(2)}. So about ${pct(1 - ic.withinArp / ic.raw)} of the agreement between questions comes from which ARP filled in the form, and the rest from differences between the forms each ARP fills in.`;
   function drawByStyle() {
     const rows = items.map((it) => ({ label: it.label, vals: Object.fromEntries(STYLE_ORDER.map((t) => [t, d3.mean(data.typed.filter((d) => d.type === t), (d) => d.items[it.i])])) }));
     dotRows(d3.select("#bystyle"), rows, STYLE_ORDER.map((t) => ({ key: t, label: T[t].label, color: COLOR[t] })), { lo: 0.3 });

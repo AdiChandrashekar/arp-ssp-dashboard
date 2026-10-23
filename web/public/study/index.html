@@ -57,15 +57,15 @@
   <canvas id="herocanvas" aria-hidden="true"></canvas>
   <div class="wrap">
     <div class="kicker">NIPUN Bharat · ARP supportive supervision · Uttar Pradesh</div>
-    <h1>Every ARP fills the same form. <mark>No two fill it the same way.</mark></h1>
-    <p class="lead">ARPs record a classroom observation on every school visit. Read question by question, the forms show stable habits: how often an ARP says yes, whether they ever pick "some" or "partial", where they end the form, and what they write down about attendance.</p>
+    <h1><span data-bind="nArps">605</span> ARPs, one form, <mark>three ways of filling it in</mark></h1>
+    <p class="lead">ARPs fill in a classroom observation form on every school visit. Read answer by answer, each ARP's forms follow habits that hold month after month: how often they mark a practice as seen, whether they use the middle answers such as "some" and "partial", how often they end the Grade 4–8 form at its first question, and what they write down for attendance.</p>
     <div class="counters">
       <div class="counter"><b class="num" data-count="arpVisits">0</b><span>ARP observations</span></div>
       <div class="counter"><b class="num" data-count="arps">0</b><span>ARPs</span></div>
       <div class="counter"><b class="num" data-count="fln">0</b><span>Grade 1–3 FLN forms by ARPs</span></div>
       <div class="counter"><b class="num" data-count="districts">0</b><span>districts</span></div>
     </div>
-    <div class="cta"><a href="#story">Read the story ↓</a><a href="explore.html">Explore and compare ARPs</a><a href="fln.html">FLN grades deep dive</a></div>
+    <div class="cta"><a href="#story">Read the story ↓</a><a href="explore.html">Explore and compare ARPs</a><a href="fln.html">FLN forms in detail</a></div>
   </div>
 </header>
 
@@ -74,72 +74,72 @@
     <div class="graphic"><svg id="viz" role="img" aria-label="Each dot is one ARP"></svg></div>
     <div class="steps">
       <div class="step" data-layout="cloud"><div class="card">
-        <h2>One dot, one ARP</h2>
-        <p>These are the <strong data-bind="nTyped"></strong> ARPs with enough observations to profile: 60 or more in all, and 30 or more on the Grade 1–3 FLN forms. Between them they recorded <strong data-bind="arpVisits"></strong> observations from <span data-bind="range"></span>.</p>
-        <p>Hover or tap a dot to see who it is.</p>
+        <h2>Each dot is one ARP</h2>
+        <p>The <span data-bind="nTyped"></span> ARPs shown here have at least 60 observations, including at least 30 on the Grade 1–3 FLN forms. Together they recorded <span data-bind="arpVisits"></span> observations from <span data-bind="range"></span>.</p>
+        <p>Hover over or tap a dot to see the ARP's name.</p>
       </div></div>
 
       <div class="step" data-layout="wall"><div class="card">
-        <h2>A <mark>wall</mark> of answers</h2>
-        <p>Each row is one ARP and each column one of the 12 questions on the Grade 1–3 FLN form. Darker red means the ARP marked that practice as seen more often.</p>
-        <p>The rows are sorted by how much the ARP's answers change between classrooms. At the top, rows are solid: the same top answer on nearly every form, in every classroom.</p>
+        <h2>Twelve FLN answers for <mark>every ARP</mark></h2>
+        <p>Each row is one ARP and each column one of the 12 questions on the Grade 1–3 FLN form. The darker the red, the more often the ARP marked that practice as seen.</p>
+        <p>Rows are sorted by how often the ARP's answers change between classrooms. In the top rows, the ARP gave the top answer to nearly every question on nearly every form.</p>
       </div></div>
 
       <div class="step" data-layout="variety"><div class="card">
         <h2>Answer variety</h2>
-        <p>For each question we measure how often an ARP's answer changes between classrooms, from 0 (always the same) to 1 (an even split). Averaged over the 12 questions, that is the ARP's <strong>answer variety</strong>.</p>
-        <p>It is a habit, not chance. Score each ARP on alternate months and the two halves agree almost perfectly (r = <strong data-bind="relVariety"></strong>). The grade observed doesn't explain it: FLN answers are almost the same in Grades 1, 2 and 3.</p>
+        <p>For each question, answer variety measures how often an ARP's answer changes from one classroom to the next: 0 if it never changes, 1 if it splits evenly. An ARP's score is the average over the 12 questions.</p>
+        <p>Scores for alternate months agree almost exactly (r = <span data-bind="relVariety"></span>), so each ARP's variety is a lasting habit. The grade observed has little effect: FLN answers in Grades 1, 2 and 3 differ by 1 to 3 points.</p>
       </div></div>
 
       <div class="step" data-layout="styles"><div class="card">
         <h2>Three <mark>recording styles</mark></h2>
         <ul>
-          <li><span class="chip" style="--c:var(--uniform)">Uniform</span> <span data-bind="n-uniform"></span>: near-identical forms, variety below 0.35. On average <strong data-bind="u-allyes"></strong> of their FLN forms have every top answer.</li>
-          <li><span class="chip" style="--c:var(--mixed)">Mixed</span> <span data-bind="n-mixed"></span>: variety between 0.35 and 0.65.</li>
-          <li><span class="chip" style="--c:var(--varied)">Varied</span> <span data-bind="n-varied"></span>: variety of 0.65 or more. Answers change from classroom to classroom; only <strong data-bind="v-allyes"></strong> of their FLN forms are all top answers.</li>
+          <li><span class="chip" style="--c:var(--uniform)">Uniform</span> <span data-bind="n-uniform"></span>, variety below 0.35. Their FLN forms are close to identical, and on average <span data-bind="u-allyes"></span> of them give the top answer to every question.</li>
+          <li><span class="chip" style="--c:var(--mixed)">Mixed</span> <span data-bind="n-mixed"></span>, variety from 0.35 to 0.65.</li>
+          <li><span class="chip" style="--c:var(--varied)">Varied</span> <span data-bind="n-varied"></span>, variety of 0.65 or more. Their answers change from classroom to classroom, and <span data-bind="v-allyes"></span> of their FLN forms give the top answer throughout.</li>
         </ul>
       </div></div>
 
       <div class="step" data-layout="partial"><div class="card">
-        <h2>Some ARPs <mark>never pick "some"</mark></h2>
-        <p>Five FLN questions have middle answers: "some children participated", "partial remedial work", "some workbooks checked". Uniform ARPs choose a middle answer <strong data-bind="u-partial"></strong> of the time; Varied ARPs <strong data-bind="v-partial"></strong>.</p>
-        <p><strong data-bind="nNoPartial"></strong> ARPs pick a middle answer on fewer than 1 in 20 questions. For them the scale is effectively yes or no.</p>
+        <h2><mark><span data-bind="nNoPartial"></span> ARPs</mark> almost never choose a middle answer</h2>
+        <p>Five FLN questions have middle answers, such as "some children participated", "remedial work partly done" and "some workbooks checked". Uniform ARPs choose a middle answer on <span data-bind="u-partial"></span> of these questions, Varied ARPs on <span data-bind="v-partial"></span>.</p>
+        <p>For the <span data-bind="nNoPartial"></span> ARPs who choose a middle answer on fewer than 1 in 20 of these questions, the scale works as yes or no.</p>
       </div></div>
 
       <div class="step" data-layout="noplan"><div class="card">
-        <h2>One question that ends the form</h2>
-        <p>On the Grade 4–8 form, answering "no lesson plan" skips every other question. How often ARPs give that answer ranges from <strong>never</strong> to <strong data-bind="maxNoPlan"></strong> of their visits, and it is just as stable a habit (r = <strong data-bind="relNoPlan"></strong>).</p>
-        <p><strong data-bind="nGate"></strong> ARPs end most of their Grade 4–8 forms there. Varied ARPs do it on <strong data-bind="v-noplan"></strong> of visits, Uniform ARPs on <strong data-bind="u-noplan"></strong>.</p>
+        <h2>One answer ends the Grade 4–8 form</h2>
+        <p>On the Grade 4–8 form, answering "no lesson plan" skips every remaining question. ARPs give that answer on anywhere between none and <span data-bind="maxNoPlan"></span> of their Grade 4–8 forms, and each ARP's rate holds from month to month (r = <span data-bind="relNoPlan"></span>).</p>
+        <p><span data-bind="nGate"></span> ARPs end most of their Grade 4–8 forms at this question. Varied ARPs end <span data-bind="v-noplan"></span> of their Grade 4–8 forms there, Uniform ARPs <span data-bind="u-noplan"></span>.</p>
       </div></div>
 
       <div class="step" data-layout="contra"><div class="card">
-        <h2>Answers that contradict each other</h2>
-        <p>Some answers rule out later ones. If the weekly tracker isn't being filled at all, the teacher can't have updated the NIPUN Talika "according to the tracker", or done remedial work with Group A, which the tracker defines.</p>
-        <p>Forms do it anyway, often. Uniform ARPs contradict themselves on <strong data-bind="u-contra"></strong> of the chances; Varied ARPs on <strong data-bind="v-contra"></strong>.</p>
+        <h2>Answers that <mark>contradict each other</mark></h2>
+        <p>Some answers rule out later ones. Teachers use the weekly assessment tracker to update the NIPUN Talika and to form Group A for remedial work, so a teacher who isn't filling in the tracker can't have done either.</p>
+        <p>Forms record both anyway. Uniform ARPs give a contradicting answer on <span data-bind="u-contra"></span> of the forms where one is possible, Varied ARPs on <span data-bind="v-contra"></span>.</p>
       </div></div>
 
       <div class="step" data-layout="facts"><div class="card">
-        <h2>Facts that shouldn't change, <mark>do</mark></h2>
-        <p>Some answers describe the school, not the lesson: an active library, sports material, an eco club, a timetable. When an ARP returns to a school weeks later, those answers change on <strong data-bind="factObs"></strong> of revisits. If ARPs answered at random at their usual yes-rates, they would change on <strong data-bind="factExp"></strong>.</p>
-        <p>So the school section tracks the school only a little better than chance, and Varied ARPs change these facts most. Variety isn't always careful observation; sometimes it is noise.</p>
+        <h2>School facts change between visits <mark>almost at random</mark></h2>
+        <p>Four answers describe the school itself: an active library, sports material in use, an eco club and a timetable. When an ARP goes back to a school weeks later, each of these answers changes on <span data-bind="factObs"></span> of revisits on average. If ARPs answered at random, at their usual rate of saying yes, each would change on <span data-bind="factExp"></span>.</p>
+        <p>The school section therefore tracks the school only slightly better than chance. Varied ARPs change these answers most often, so part of a high variety score is noise.</p>
       </div></div>
 
       <div class="step" data-layout="present"><div class="card">
-        <h2>Attendance is written differently by place</h2>
-        <p>The average ARP marks every teacher present on <strong data-bind="allPresentMean"></strong> of visits, but this ranges from <strong data-bind="allPresentP10"></strong> to <strong data-bind="allPresentP90"></strong>. The block an ARP works in explains <strong data-bind="blkPresent"></strong> of these differences (<strong data-bind="blkChance"></strong> would be chance).</p>
-        <p>Some of this is real attendance, and some is how the block records it.</p>
+        <h2>Teacher attendance records vary <mark>by block</mark></h2>
+        <p>The average ARP marks every teacher present on <span data-bind="allPresentMean"></span> of visits. One ARP in ten does so on fewer than <span data-bind="allPresentP10"></span>, and one in ten on more than <span data-bind="allPresentP90"></span>. The ARP's block accounts for <span data-bind="blkPresent"></span> of the differences between ARPs, against <span data-bind="blkChance"></span> expected by chance.</p>
+        <p>Part of this is real attendance and part is how each block records it. The data can't separate the two.</p>
       </div></div>
 
       <div class="step" data-layout="district"><div class="card">
-        <h2>Style is <mark>local</mark></h2>
-        <p>Each row is a district, with its ARPs grouped by style. In <strong data-bind="dTop"></strong>, most ARPs are Uniform. In <strong data-bind="dBottom"></strong>, few are.</p>
-        <p>Within a block, ARPs resemble each other: block explains <strong data-bind="blkVar"></strong> of the differences in answer variety, against <strong data-bind="blkChance"></strong> by chance. That points to how blocks train, check and use the form.</p>
+        <h2>Recording style clusters by district <mark>and block</mark></h2>
+        <p>Each row is a district, with its ARPs grouped by style. Most ARPs are Uniform in <span data-bind="dTop"></span>, and few are in <span data-bind="dBottom"></span>.</p>
+        <p>ARPs in the same block also resemble each other: the block accounts for <span data-bind="blkVar"></span> of the differences in answer variety, against <span data-bind="blkChance"></span> by chance. This suggests that how a block trains ARPs and checks their forms shapes how they fill them in.</p>
       </div></div>
 
       <div class="step" data-layout="final"><div class="card">
-        <h2>What this is, and isn't</h2>
-        <p>This describes <strong>how forms are filled in</strong>. It doesn't measure how well an ARP coaches. A Uniform ARP may be a fine mentor; a Varied one may be noisy.</p>
-        <p>But it shows that adding the forms up hides a lot. <a href="explore.html">Explore and compare</a> every ARP, or go deeper into <a href="fln.html">the Grade 1–3 FLN forms</a>.</p>
+        <h2>What the forms can and can't tell us</h2>
+        <p>These measures describe how ARPs fill in the form. Coaching quality and children's learning are outside what this data can show: a Uniform ARP may coach well, and a Varied ARP's answers may be partly noise.</p>
+        <p>District totals built from these forms combine ARPs who give the top answer throughout on <span data-bind="u-allyes"></span> of their FLN forms with ARPs who do so on <span data-bind="v-allyes"></span>. <a href="explore.html">Explore and compare</a> every ARP, or see the <a href="fln.html">Grade 1–3 FLN forms in detail</a>.</p>
       </div></div>
     </div>
   </div>
@@ -149,17 +149,17 @@
       <h2 class="sec rise">How this was measured</h2>
       <div class="method">
         <h3>Data</h3>
-        <p>Every classroom observation in the mentor-app exports for the 10 programme districts (<span data-bind="range"></span>). Names, districts and blocks are as recorded in the app. An ARP is identified by their (hashed) phone number.</p>
+        <p>Every classroom observation in the mentor app exports for the 10 programme districts, from <span data-bind="range"></span>. Names, districts and blocks are as recorded in the app. Each ARP is identified by a hashed phone number.</p>
         <h3>Grades</h3>
-        <p>Comparisons are grade-aware. Positivity compares each answer with the average on the same form, grade and month. Revisit checks compare the same school, form and grade. FLN item answers differ by only 1–3 points between Grades 1, 2 and 3 (see the <a href="fln.html">FLN page</a>), so grade mix doesn't drive the styles.</p>
+        <p>Comparisons are made within a grade. Positivity compares each answer with the average on the same form, grade and month; revisit checks compare the same school, form and grade. FLN answers differ by 1 to 3 points between Grades 1, 2 and 3 (see the <a href="fln.html">FLN page</a>), so the mix of grades an ARP observes has little effect on their style.</p>
         <h3>Answer variety</h3>
-        <p>For each of 12 FLN questions, 4 × p × (1 − p), where p is the ARP's average answer (the top answer scores 1, middle answers between 0 and 1). This is averaged across questions. Split-half reliability (odd vs even months) r = <span data-bind="relVariety"></span>.</p>
+        <p>For each of 12 FLN questions, 4 × p × (1 − p), where p is the ARP's average answer (the top answer scores 1, middle answers between 0 and 1), averaged across the questions. Split-half reliability, odd against even months: r = <span data-bind="relVariety"></span>.</p>
         <h3>Styles</h3>
-        <p>Uniform: variety below 0.35. Mixed: 0.35 to 0.65. Varied: 0.65 or more. A k-means clustering of all the stable measures found the same main split. It also separated ARPs who mark every teacher present, but that turned out to reflect their schools as much as the ARP, so it is shown as a marker instead.</p>
+        <p>Uniform: variety below 0.35. Mixed: 0.35 to 0.65. Varied: 0.65 or more. A k-means clustering of all the stable measures found the same main split. It also grouped together ARPs who mark every teacher present; that turned out to depend on their schools as much as on the ARP, so it appears as a marker on profiles.</p>
         <h3>Contradictions</h3>
-        <p>Four checks on FLN forms: no Sandarshika but teacher referred to it; tracker not filled but NIPUN Talika updated; tracker not filled but remedial work with Group A done; no child did last week's worksheets but all were checked.</p>
+        <p>Four checks on FLN forms: the teacher doesn't have the Sandarshika and is recorded as referring to it; the tracker isn't filled in and the NIPUN Talika is recorded as updated; the tracker isn't filled in and remedial work with Group A is recorded as done; no child did last week's worksheets and all are recorded as checked.</p>
         <h3>Limits</h3>
-        <p>None of this measures coaching or learning. Facts can genuinely change between visits. An ARP's schools shape some numbers, especially attendance. The page rebuilds automatically as new monthly exports arrive.</p>
+        <p>The measures describe form filling only, and say nothing about coaching or learning. Some school facts do change between visits. An ARP's schools shape some numbers, attendance most of all. The pages rebuild automatically when new monthly exports arrive.</p>
       </div>
     </div>
   </section>
@@ -183,7 +183,7 @@
   const dshare = d3.rollups(typed, (v) => d3.mean(v, (d) => d.type === "uniform"), (d) => d.district).sort((a, b) => b[1] - a[1]);
   const q = (k, p) => d3.quantile(typed.map((d) => d[k]).filter((x) => x != null).sort(d3.ascending), p);
   const binds = {
-    range: data.range, nTyped: fmtInt(typed.length), arpVisits: fmtInt(meta.arpVisits),
+    range: data.range, nArps: fmtInt(data.arps.length), nTyped: fmtInt(typed.length), arpVisits: fmtInt(meta.arpVisits),
     relVariety: meta.reliability.variety.toFixed(2), relNoPlan: meta.reliability.noPlan.toFixed(2),
     "u-allyes": pct(mean("uniform", "flnAllYes")), "v-allyes": pct(mean("varied", "flnAllYes")),
     "u-partial": pct(mean("uniform", "partial")), "v-partial": pct(mean("varied", "partial")),

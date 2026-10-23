@@ -23,7 +23,7 @@ window.S = (function () {
   // Every per-ARP measure the pages can sort, plot or compare.
   const METRICS = [
     { id: "variety", label: "Answer variety", short: "Variety", fmt: (x) => (x == null ? "–" : x.toFixed(2)), domain: [0, 1],
-      desc: "How often the ARP's answer to each Grade 1–3 FLN question changes between classrooms. 0 = the same answer every time." },
+      desc: "How often the ARP's answer to each Grade 1–3 FLN question changes between classrooms, from 0 (the same answer every time) to 1 (an even split)." },
     { id: "flnLean", label: "Positivity vs grade average", short: "Positivity", fmt: pts, domain: [-0.55, 0.2],
       desc: "Points above or below the average answer on the same form, grade and month, across all raters." },
     { id: "flnAllYes", label: "FLN forms with every top answer", short: "All-top FLN", fmt: pct, domain: [0, 1],
@@ -31,13 +31,13 @@ window.S = (function () {
     { id: "partial", label: "In-between answers used", short: "In-between", fmt: pct, domain: [0, 1],
       desc: "On questions with more than two answers (some, partial…), how often the ARP picks a middle option." },
     { id: "contradictions", label: "Contradictory answers", short: "Contradictions", fmt: pct, domain: [0, 1],
-      desc: "When an earlier answer rules a later one out (no tracker → NIPUN Talika updated), how often the ARP gives it anyway." },
+      desc: "Where an earlier answer rules a later one out (tracker not filled in, then NIPUN Talika updated), how often the ARP gives the later answer." },
     { id: "noPlan", label: "Gr 4–8 forms ended at “no lesson plan”", short: "No plan", fmt: pct, domain: [0, 1],
       desc: "Answering “no lesson plan” skips the rest of the Grade 4–8 form." },
     { id: "gAllYes", label: "Gr 4–8 forms all “yes” (with a plan)", short: "All-yes Gr 4–8", fmt: pct, domain: [0, 1],
       desc: "Of Grade 4–8 forms that go past the lesson-plan question, the share marked “yes” throughout." },
     { id: "allPresent", label: "Every teacher marked present", short: "All teachers present", fmt: pct, domain: [0, 1],
-      desc: "Visits where teachers present equals teachers in position. Partly reflects the schools, not only the ARP." },
+      desc: "Visits where teachers present equals teachers in position. Depends on the schools as well as the ARP." },
     { id: "classFull", label: "Every enrolled child present", short: "Full class", fmt: pct, domain: [0, 0.6],
       desc: "Visits where children present in the observed class equals children enrolled." },
     { id: "factFlip", label: "School facts changed on revisit", short: "Fact changes", fmt: pct, domain: [0, 0.4],
@@ -47,7 +47,7 @@ window.S = (function () {
     { id: "teacherRepeat", label: "Visits to a teacher seen before", short: "Repeat teachers", fmt: pct, domain: [0, 0.8],
       desc: "Share of observations of a teacher this ARP had already observed." },
     { id: "hindiShare", label: "FLN observations in Hindi", short: "Hindi share", fmt: pct, domain: [0, 1],
-      desc: "Of Grade 1–3 FLN observations, the share in Hindi rather than Maths." },
+      desc: "Of Grade 1–3 FLN observations, the share in Hindi. The rest are Maths." },
     { id: "grade1Share", label: "FLN observations in Grade 1", short: "Grade 1 share", fmt: pct, domain: [0, 1] , desc: "Of Grade 1–3 FLN observations, the share in Grade 1." },
     { id: "minutes", label: "Median visit length", short: "Minutes", fmt: (x) => (x == null ? "–" : Math.round(x) + " min"), domain: [100, 160], desc: "Time the app recorded per observation." },
     { id: "visitsPerMonth", label: "Visits per active month", short: "Visits/month", fmt: (x) => (x == null ? "–" : x.toFixed(1)), domain: [0, 35], desc: "Average observations in months with at least one." },
@@ -96,7 +96,7 @@ window.S = (function () {
   function hideTip() { if (tip) tip.style.opacity = 0; }
   const chip = (t) => `<span class="chip" style="--c:${COLOR[t]}">${DATA.TYPES[t].label}</span>`;
   const arpTip = (d, extra = "") => `<b>${d.name}</b><span class="m">${d.block}, ${d.district}</span><br>${chip(d.type)}<br>` +
-    `Variety ${M.variety.fmt(d.variety)} · in-between ${pct(d.partial)}${extra}<br><span class="m">click for the profile</span>`;
+    `Variety ${M.variety.fmt(d.variety)} · in-between ${pct(d.partial)}${extra}<br><span class="m">click to open the profile</span>`;
 
   // ---- compare list (kept in the URL hash on the explore page, and in this browser) ----
   const CK = "arpstudy-compare";
@@ -131,7 +131,7 @@ window.S = (function () {
         <a href="explore.html#compare">Open the comparison</a>
         <span class="note">Link to this profile: <a href="#arp=${d.id}">#arp=${d.id}</a></span>
       </div>
-      <p class="note">This describes how the forms were filled in. It doesn't measure coaching quality or student learning.</p>
+      <p class="note">These numbers describe how the forms were filled in, and say nothing about coaching quality or children's learning.</p>
     </div>`;
     dlg.querySelector(".close").onclick = () => dlg.close();
     dlg.querySelector("#pfcmp").onclick = () => {
