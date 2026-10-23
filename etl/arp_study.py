@@ -1,22 +1,19 @@
-"""Build the ARP rating-behaviour study data from the dashboard's district files.
+"""Build the ARP form-filling study data from the redacted monthly exports.
 
 Usage:
-    python etl/arp_study.py [data_dir] [out_file]
+    python etl/arp_study.py [exports_dir] [out_file]
 
-Defaults: data_dir = web/public/data, out_file = web/public/study/data.json
+Defaults: exports_dir = data/exports, out_file = web/public/study/data.json
 
-Reads the district JSON written by etl/build.py and profiles how each ARP
-fills in the observation form:
-  - generosity: how many points higher (or lower) the ARP scores classrooms
-    than other raters who saw the same school in the same quarter, anchored so
-    DIET mentors and SRGs average zero (a rater-effects model),
-  - variety: how often the ARP's answer to each FLN question changes from
-    visit to visit (0 = same answer every time),
-  - spot assessments, effort and coverage.
-ARPs are then sorted into rating-style types with simple, published rules.
+Profiles how each ARP fills in the classroom-observation form, item by item:
+how often they mark each practice as seen (against the average for the same
+form, grade and month, so grade mix doesn't count), how much their answers
+vary between classrooms, how often they use the in-between options, how
+often they end the Grade 4-8 form at "no lesson plan", what they record for
+attendance, and whether school facts stay the same when they return to a
+school. ARPs are then sorted into three recording styles with published rules.
 """
 
-import glob
 import json
 import os
 import sys
@@ -25,215 +22,321 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "web", "public", "data")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import build  # noqa: E402  (shares the export reader and column checks)
+
+ROOT = build.ROOT
+EXPORTS = sys.argv[1] if len(sys.argv) > 1 else build.EXPORTS_DIR
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "web", "public", "study", "data.json")
 
-FLN_ITEMS = ["guide_avail", "guide_used", "tlm", "peer", "particip", "diary", "tracker", "nipun_table",
-             "remedial", "wb_avail", "wb_done", "wb_checked", "fluency"]
+YES = {"हाँ", "हां"}
+MIN_VISITS, MIN_FLN = 60, 30
 
-# Type rules, applied in this order. Thresholds sit at natural breaks in the
-# 2025-26 data (see the study page's method notes).
-MIN_VISITS, MIN_SHARED = 60, 10
-LOW_VARIETY, HIGH_VARIETY = 0.35, 0.5
-ALL_CLEAR_SPOT = 0.30
-STRICT_GENEROSITY = 0.05
+# Items: id, label, group, (Maths column, Hindi column) or column, answer -> value rule.
+# Graded answers score the top option 1, in-between options between 0 and 1.
+FLN_ITEMS = [
+    ("guide_avail", "Teacher has the Sandarshika", (15, 61), "yn"),
+    ("guide_used", "Teacher referred to the Sandarshika", (42, 129), "yn"),
+    ("tlm", "Teaching material used", (43, 130), [("हाँ", 1), ("शिक्षक द्वारा", 1), ("नहीं", 0)]),
+    ("peer", "Peer learning in pairs or groups", (46, 133), "yn"),
+    ("diary", "Teacher diary filled", (47, 134), "yn"),
+    ("particip", "Most children participating", (48, 135), [("अधिकांश", 1), ("कुछ", .5), ("बहुत कम", 0), ("शिक्षक ने", 0)]),
+    ("tracker", "Weekly assessment tracker filled", (49, 137), [("1.", 1), ("2.", .67), ("3.", .33), ("4.", 0)]),
+    ("nipun", "NIPUN Talika updated", (50, 136), [("हाँ", 1), ("नहीं", 0)]),
+    ("remedial", "Remedial work with Group A", (51, 138), [("हाँ", 1), ("आंशिक", .5), ("नहीं", 0)]),
+    ("wb_avail", "Most children have workbooks", (52, 139), "yn"),
+    ("wb_done", "All children did last week's worksheets", (54, 141), [("सभी", 1), ("कुछ", .5), ("किसी", 0)]),
+    ("wb_checked", "Teacher checked all workbooks", (55, 142), [("सभी", 1), ("कुछ", .5), ("किसी", 0)]),
+    ("fluency", "Reading fluency recorded (Hindi only)", (None, 143), [("हाँ", 1), ("शिक्षक ने कुछ", .5), ("नहीं", 0)]),
+]
+GRADED = ["particip", "tracker", "remedial", "wb_done", "wb_checked", "fluency"]
+G_ITEMS = [
+    ("lp_ready", "Lesson plan ready (“no” ends the form)", 185), ("lp_followed", "Teaching followed the plan", 186),
+    ("lp_lo", "Learning outcomes in the plan", 187), ("g_tlm", "Teaching material used", 188),
+    ("prior", "Checked prior knowledge", 189), ("activity", "Effective methods used", 192),
+    ("group_work", "Group work", 194), ("equal_opp", "All children given a chance", 196),
+    ("check_und", "Checked understanding during class", 198), ("learn_level", "Assessed children's learning level", 202),
+]
+FACT_ITEMS = [("library", "Active library", 174), ("sports", "Children use sports material", 179),
+              ("eco", "Eco & Youth Club formed", 180), ("timetable", "Timetable made and followed", 183),
+              ("syllabus", "Monthly syllabus on track", 184)]
+NUMS = dict(cls_enr=153, cls_pres=154, enr=155, pres=158, tpos=168, tpres=171)
+
+# Recording styles, applied in order, on answer variety alone: the one trait that
+# is both very stable for an ARP and about the ARP rather than their schools.
+# Other behaviours are shown as markers (BADGES), not styles.
+LOW_VARIETY, HIGH_VARIETY = 0.35, 0.65
 TYPES = [
-    dict(id="allclear", label="All-clear",
-         rule="Near-identical, mostly-yes forms, and 30% or more of spot assessments report every child Saksham"),
-    dict(id="boxtick", label="Box-ticking",
-         rule="Near-identical, mostly-yes forms (answer variety below 0.35)"),
-    dict(id="discerning", label="Discerning",
-         rule="Answers vary (variety 0.5 or more) and scores are within 5 points of, or below, DIET/SRG"),
-    dict(id="mixed", label="In between", rule="Everyone else"),
+    dict(id="uniform", label="Uniform",
+         rule=f"Near-identical Grade 1–3 FLN forms: answer variety below {LOW_VARIETY}"),
+    dict(id="mixed", label="Mixed", rule=f"Answer variety between {LOW_VARIETY} and {HIGH_VARIETY}"),
+    dict(id="varied", label="Varied",
+         rule=f"Answer variety of {HIGH_VARIETY} or more: answers change from classroom to classroom"),
+    dict(id="few", label="Too little data", rule=f"Fewer than {MIN_VISITS} visits or {MIN_FLN} Grade 1–3 FLN forms"),
+]
+BADGES = [
+    dict(id="gate", label="Ends most Grade 4–8 forms at “no lesson plan”", metric="noPlan", op=">=", value=0.5),
+    dict(id="nopartial", label="Almost never uses in-between answers", metric="partial", op="<", value=0.05),
+    dict(id="allpresent", label="Marks every teacher present on 85%+ of visits", metric="allPresent", op=">=", value=0.85),
+    dict(id="contra", label="Contradicts an earlier answer 40%+ of the time it could", metric="contradictions", op=">=", value=0.4),
+    dict(id="factflip", label="Changes fixed school facts on 15%+ of revisits", metric="factFlip", op=">=", value=0.15),
+    dict(id="repeat", label="Returns to the same teachers on 35%+ of visits", metric="teacherRepeat", op=">=", value=0.35),
 ]
 
 
-def load(data_dir):
-    vis, ments, schs, spots = [], [], [], []
-    for f in sorted(glob.glob(os.path.join(data_dir, "districts", "*.json"))):
-        d = json.load(open(f, encoding="utf-8"))
-        dist = d["meta"]["district"]
-        if not d["visits"]:
-            continue
-        kpis = d["meta"]["kpis"]
-        v = pd.DataFrame(d["visits"], columns=d["meta"]["visitFields"])
-        codes = np.array([list(k) for k in v["kpis"]])
-        for i, k in enumerate(kpis):
-            v[k["id"]] = np.where(codes[:, i] == "1", 1.0, np.where(codes[:, i] == "0", 0.0, np.nan))
-        score_cols = [k["id"] for k in kpis if k["inScore"]]
-        v["score"] = v[score_cols].mean(axis=1)
-        v["n_items"] = v[score_cols].notna().sum(axis=1)
-        v["district"] = dist
-        vis.append(v.drop(columns=["kpis"]))
-        m = pd.DataFrame(d["mentors"]); m["district"] = dist; ments.append(m)
-        s = pd.DataFrame(d["schools"]); s["district"] = dist; schs.append(s)
-        if d.get("spot"):
-            sp = pd.DataFrame(d["spot"], columns=d["meta"]["spotFields"]); sp["district"] = dist; spots.append(sp)
-    return pd.concat(vis), pd.concat(ments), pd.concat(schs), pd.concat(spots)
+def rule_fn(spec):
+    if spec == "yn":
+        return lambda v: 1.0 if v in YES else (0.0 if isinstance(v, str) and v.startswith("नहीं") else np.nan)
+
+    def f(v):
+        if not isinstance(v, str):
+            return np.nan
+        for pre, val in spec:
+            if v.startswith(pre):
+                return float(val)
+        return np.nan  # e.g. "not applicable"
+    return f
 
 
-def rater_effects(df, iters=40):
-    """score = cell (school x quarter x form group) + rater effect, over cells seen by 2+ raters.
+def frame(raw):
+    raw = raw.drop_duplicates(subset=[c for c in raw.columns if c != 0]).reset_index(drop=True)
+    num = lambda c: pd.to_numeric(raw[c], errors="coerce")  # noqa: E731
+    d = pd.DataFrame({
+        "district": raw[1].map(lambda s: build.title(s) if isinstance(s, str) else s),
+        "block": raw[2], "udise": raw[5].fillna("").str.zfill(11), "name": raw[7], "mob": raw[8],
+        "desig": raw[9].fillna(""), "date": pd.to_datetime(raw[10], format="%d/%m/%Y", errors="coerce"),
+        "grade": raw[13].str.extract(r"(\d)")[0].astype(float), "teacher": raw[149],
+        "minutes": raw[11].str.extract(r"(\d+)\s*minutes?")[0].astype(float),
+    })
+    d = d[d.date.notna()]
+    raw = raw.loc[d.index]
+    d["arp"] = d.desig.str.upper().str.startswith("ARP")
+    d["mkey"] = d.district + "|" + d.mob.fillna("?")
+    d["skey"] = d.district + "|" + d.udise
+    d["month"] = d.date.dt.strftime("%Y-%m")
+    d["form"] = np.where(raw[15].notna(), "FM", np.where(raw[61].notna(), "FH",
+                np.where(raw[204].isna() & (d.grade >= 3), "G", "O")))
+    yn = rule_fn("yn")
+    for k, _, (cm, ch), spec in FLN_ITEMS:
+        f = rule_fn(spec)
+        m = raw[cm].map(f) if cm is not None else np.nan
+        d[k] = np.where(d.form == "FM", m, np.where(d.form == "FH", raw[ch].map(f), np.nan))
+    for k, _, c in G_ITEMS:
+        d[k] = np.where(d.form == "G", raw[c].map(yn), np.nan)
+    for k, _, c in FACT_ITEMS:
+        f = (lambda v: np.nan if not isinstance(v, str) else float("और उसके" in v)) if k == "timetable" else yn
+        d[k] = raw[c].map(f)
+    d["feedback"] = np.where(d.form == "FM", raw[57].map(yn), np.where(d.form == "FH", raw[145].map(yn), np.nan))
+    for k, c in NUMS.items():
+        d[k] = num(c)
+    d["all_present"] = (d.tpres == d.tpos).astype(float).where(d.tpos > 0)
+    d["class_full"] = (d.cls_pres == d.cls_enr).astype(float).where(d.cls_enr > 0)
+    d["round5"] = (d.pres % 5 == 0).astype(float).where(d.pres > 0)
+    d["guide_week_other"] = np.where(d.form == "FM", raw[17].fillna("").str.startswith("अन्य"),
+                            np.where(d.form == "FH", raw[63].fillna("").str.startswith("अन्य"), np.nan))
+    return d
 
-    Rater effects are anchored so the DIET mentors' and SRGs' average is 0, so
-    an ARP's effect reads as "points above an independent observer".
-    """
-    nr = df.groupby("cell").mkey.nunique()
-    df = df[df.cell.isin(nr[nr >= 2].index)]
-    independents = df.loc[df.category != "ARP", "mkey"].unique()
-    r = pd.Series(0.0, index=df.mkey.unique())
-    for _ in range(iters):
-        c = (df.score - df.mkey.map(r)).groupby(df.cell).mean()
-        r = (df.score - df.cell.map(c)).groupby(df.mkey).mean()
-        r -= r[r.index.isin(independents)].mean()
-    return r, df.groupby("mkey").size(), df
 
-
-def split_half(df, rng):
-    halves = {c: rng.integers(2) for c in df.cell.unique()}
-    h = df.cell.map(halves)
-    (r0, n0, _), (r1, n1, _) = rater_effects(df[h == 0]), rater_effects(df[h == 1])
-    j = pd.concat([r0, r1, n0, n1], axis=1, keys=["a", "b", "na", "nb"]).dropna()
-    j = j[(j.na >= 10) & (j.nb >= 10)]
-    return round(float(j.a.corr(j.b)), 3)
-
-
-def classify(r):
-    if r.n_obs < MIN_VISITS or not r.shared_n >= MIN_SHARED or pd.isna(r.variety):
-        return "few"
-    if r.variety < LOW_VARIETY:
-        return "allclear" if r.spot_allsak >= ALL_CLEAR_SPOT else "boxtick"
-    if r.variety >= HIGH_VARIETY and r.generosity <= STRICT_GENEROSITY:
-        return "discerning"
-    return "mixed"
-
-
-def r2(x, n=3):
+def r3(x, n=3):
     return None if x is None or pd.isna(x) else round(float(x), n)
 
 
 def main():
-    v, m, s, sp = load(DATA_DIR)
-    v = v.merge(m[["district", "id", "category", "name", "block"]].rename(columns={"id": "mentor", "block": "home_block"}),
-                on=["district", "mentor"])
-    v["mkey"] = v.district + "|" + v.mentor.astype(str)
-    v["skey"] = v.district + "|" + v.school.astype(str)
-    s["skey"] = s.district + "|" + s.id.astype(str)
-    v = v.merge(s[["skey", "block", "ssp"]], on="skey", how="left")
-    v["d"] = pd.to_datetime(v.date)
-    v["month"] = v.date.str[:7]
-    v["fg"] = np.where(v.form.isin(["FM", "FH"]), "FLN", np.where(v.form == "G", "G", "O"))
-    v["ok"] = v.fg.isin(["FLN", "G"]) & (v.n_items >= 5)
-    v["cell"] = v.skey + "|" + v.d.dt.year.astype(str) + "Q" + v.d.dt.quarter.astype(str) + "|" + v.fg
-    print(f"  {len(v)} visits, {v.mkey.nunique()} mentors")
+    raw, _ = build.read_exports(EXPORTS)
+    d = frame(raw)
+    fln_ids = [i[0] for i in FLN_ITEMS]
+    g_ids = [i[0] for i in G_ITEMS]
+    g_core = g_ids[1:]
+    fact_ids = [i[0] for i in FACT_ITEMS]
+    fl = d.form.isin(["FM", "FH"]) & d.grade.isin([1, 2, 3])
+    gf = d.form == "G"
 
-    rated = v[v.ok]
-    gen, shared_n, cells = rater_effects(rated)
-    reliability = {"generosity": split_half(cells, np.random.default_rng(7))}
+    # Lean: the answer minus the average answer on the same form, grade and month (all raters).
+    for ids, mask, col in ((fln_ids, fl, "fln_lean"), (g_core, gf & (d.lp_ready == 1), "g_lean")):
+        sub = d[mask]
+        res = pd.DataFrame({k: sub[k] - sub.groupby(["form", "grade", "month"])[k].transform("mean") for k in ids})
+        d.loc[mask, col] = res.mean(axis=1)
+    d["fln_max"] = np.where(fl, (d[fln_ids].fillna(1) >= 1).all(axis=1), np.nan)
+    d["g_max"] = np.where(gf & (d.lp_ready == 1), (d[g_core].fillna(1) >= 1).all(axis=1), np.nan)
+    gr = [k for k in GRADED]
+    d["partial"] = d[gr].apply(lambda s: s.between(0.01, 0.99)).sum(axis=1) / d[gr].notna().sum(axis=1).replace(0, np.nan)
+    d.loc[~fl, "partial"] = np.nan
+    d["tkey"] = d.skey + "|" + d.teacher.fillna("").str.lower().str.replace(r"\s+", "", regex=True)
+    d = d.sort_values(["mkey", "date"])
+    d["seen_teacher"] = (d.groupby(["mkey", "tkey"]).cumcount() > 0).astype(float)
 
-    a = v[v.category == "ARP"].copy()
-    fl = a[a.ok & (a.fg == "FLN")]
-    g = a[a.ok & (a.fg == "G")]
-    ga = a[a.fg == "G"]
-    P = pd.DataFrame(index=a.mkey.unique())
-    P["generosity"] = gen
-    P["shared_n"] = shared_n
-    p = fl.groupby("mkey")[FLN_ITEMS].mean()
-    P["variety"] = (4 * p * (1 - p)).mean(axis=1)
-    P["fln_allyes"] = fl.assign(x=fl.score.eq(1)).groupby("mkey").x.mean()
-    P["g_allyes"] = g.assign(x=g.score.eq(1)).groupby("mkey").x.mean()
-    P["no_plan"] = ga.assign(x=ga.lp_ready.eq(0)).groupby("mkey").x.mean()
-    P["fln_score"] = fl.groupby("mkey").score.mean()
-    P["n_obs"] = a.groupby("mkey").size()
+    # Contradictions on FLN forms: an answer the earlier answer rules out.
+    cpre = {"guide": (d.guide_avail == 0), "nipun": (d.tracker == 0), "remedial": (d.tracker == 0), "wb": (d.wb_done == 0)}
+    chit = {"guide": cpre["guide"] & (d.guide_used == 1), "nipun": cpre["nipun"] & (d.nipun == 1),
+            "remedial": cpre["remedial"] & (d.remedial == 1), "wb": cpre["wb"] & (d.wb_checked == 1)}
+    d["contra_pre"] = np.where(fl, sum(v.astype(int) for v in cpre.values()), np.nan)
+    d["contra_hit"] = np.where(fl, sum(v.astype(int) for v in chit.values()), np.nan)
+
+    # Revisits by the same rater to the same school, 14-180 days apart: do fixed school facts stay put?
+    v = d.sort_values(["mkey", "skey", "date"])
+    g = v.groupby(["mkey", "skey"])
+    gap = (v.date - g.date.shift()).dt.days
+    rv = v[gap.between(14, 180)].copy()
+    for k in fact_ids[:4]:
+        rv["flip_" + k] = (rv[k] != g[k].shift().loc[rv.index]).astype(float).where(rv[k].notna() & g[k].shift().loc[rv.index].notna())
+    rv["enr_same"] = (rv.enr == g.enr.shift().loc[rv.index]).astype(float)
+
+    a = d[d.arp]
+    af = a[fl.loc[a.index]]
+    G = a.groupby("mkey")
+    P = pd.DataFrame({
+        "name": G.name.agg(lambda s: build.title(s.mode().iat[0])), "district": G.district.first(),
+        "block": G.block.agg(lambda s: s.mode().iat[0]), "visits": G.size(), "months": G.month.nunique(),
+        "flnForms": af.groupby("mkey").size(),
+    })
     pm = a.groupby(["mkey", "month"]).size()
-    P["months"] = pm.groupby("mkey").size()
-    P["visits_pm"] = pm.groupby("mkey").mean()
-    P["target_share"] = (pm >= 30).groupby("mkey").mean()
-    P["schools"] = a.groupby("mkey").skey.nunique()
-    P["adopted_share"] = a.groupby("mkey").ssp.mean()
-    P["minutes"] = a.groupby("mkey").minutes.median()
-    a["att"] = (a.stu_pres / a.stu_enr).where((a.stu_enr > 0) & (a.stu_pres <= a.stu_enr * 1.2))
-    P["attendance"] = a.groupby("mkey").att.mean()
+    P["visitsPerMonth"] = pm.groupby("mkey").mean()
+    P["targetShare"] = (pm >= 30).groupby("mkey").mean()
+    p = af.groupby("mkey")[fln_ids[:-1]].mean()
+    P["variety"] = (4 * p * (1 - p)).clip(0, 1).mean(axis=1)
+    P["flnLean"] = af.groupby("mkey").fln_lean.mean()
+    P["flnAllYes"] = af.groupby("mkey").fln_max.mean()
+    P["partial"] = af.groupby("mkey").partial.mean()
+    ag = a[a.form == "G"]
+    P["noPlan"] = ag.groupby("mkey").lp_ready.apply(lambda s: (s == 0).mean())
+    P["gAllYes"] = ag[ag.lp_ready == 1].groupby("mkey").g_max.mean()
+    P["gLean"] = ag.groupby("mkey").g_lean.mean()
+    P["allPresent"] = G.all_present.mean()
+    P["classFull"] = G.class_full.mean()
+    P["round5"] = G.round5.mean()
+    P["minutes"] = G.minutes.median()
+    P["feedbackNo"] = G.feedback.apply(lambda s: (s == 0).sum() / max(s.notna().sum(), 1))
+    P["teacherRepeat"] = G.seen_teacher.mean()
+    P["schools"] = G.skey.nunique()
+    P["flnShare"] = G.form.apply(lambda s: s.isin(["FM", "FH"]).mean())
+    P["hindiShare"] = af.groupby("mkey").form.apply(lambda s: (s == "FH").mean())
+    P["grade1Share"] = af.groupby("mkey").grade.apply(lambda s: (s == 1).mean())
+    cs = af.groupby("mkey")[["contra_pre", "contra_hit"]].sum()
+    P["contradictions"] = (cs.contra_hit / cs.contra_pre.replace(0, np.nan)).where(cs.contra_pre >= 10)
+    ra = rv[rv.mkey.isin(P.index)]
+    flips = ra[["flip_" + k for k in fact_ids[:4]]].mean(axis=1)
+    P["factFlip"] = flips.groupby(ra.mkey).mean()
+    P["enrSame"] = ra.groupby("mkey").enr_same.mean()
 
-    # Spot assessments: each school-month goes to the ARP who visited the school most that month.
-    sp["skey"] = sp.district + "|" + sp.school.astype(str)
-    gs = sp[sp.assessed > 0].groupby(["skey", "month"])[["assessed", "saksham"]].sum().reset_index()
-    gs["sak"] = gs.saksham / gs.assessed
-    gs = gs.merge(s[["skey", "block"]], on="skey")
-    gs["sak_vs_block"] = gs.sak - gs.groupby([gs.skey.str.split("|").str[0] + "|" + gs.block.astype(str), "month"]).sak.transform("mean")
-    top = (a.groupby(["skey", "month", "mkey"]).size().rename("k").reset_index()
-           .sort_values("k").drop_duplicates(["skey", "month"], keep="last"))
-    gs = gs.merge(top[["skey", "month", "mkey"]], on=["skey", "month"])
-    P["spot_n"] = gs.groupby("mkey").size()
-    P["spot_allsak"] = gs.assign(x=gs.sak.eq(1)).groupby("mkey").x.mean()
-    P["spot_vs_block"] = gs.groupby("mkey").sak_vs_block.mean()
-    P["type"] = P.apply(classify, axis=1)
+    def style(r):
+        if r.visits < MIN_VISITS or not r.flnForms >= MIN_FLN or pd.isna(r.variety):
+            return "few"
+        if r.variety < LOW_VARIETY:
+            return "uniform"
+        return "varied" if r.variety >= HIGH_VARIETY else "mixed"
+    P["type"] = P.apply(style, axis=1)
 
-    # Monthly rhythm: visits and the share of all-yes FLN forms.
-    mon = a.groupby(["mkey", "month"]).agg(n=("date", "size")).join(
-        fl.assign(x=fl.score.eq(1)).groupby(["mkey", "month"]).x.mean().rename("allyes"))
+    # Item profile per ARP: mean answer on every item (FLN on Grade 1-3 forms).
+    items_meta = ([dict(id=k, label=l, group="fln", graded=k in GRADED) for k, l, *_ in FLN_ITEMS]
+                  + [dict(id=k, label=l, group="g", graded=False) for k, l, _ in G_ITEMS]
+                  + [dict(id=k, label=l, group="school", graded=False) for k, l, _ in FACT_ITEMS])
+    prof = pd.concat([af.groupby("mkey")[fln_ids].mean(), ag.groupby("mkey")[g_ids].mean(), G[fact_ids].mean()], axis=1)
+    mon = a.groupby(["mkey", "month"]).agg(n=("date", "size")).join(af.groupby(["mkey", "month"]).fln_max.mean().rename("allyes"))
 
-    # What independents see in the same schools, by the ARP's type: ARP and DIET/SRG ratings
-    # in shared cells (same school, quarter, form group).
-    cells = cells.copy()
-    cells["type"] = cells.mkey.map(P.type)
-    ind_cell = cells[cells.category != "ARP"].groupby("cell").score.mean()
-    sharedc = cells[(cells.category == "ARP") & cells.cell.isin(ind_cell.index)].copy()
-    sharedc["ind"] = sharedc.cell.map(ind_cell)
-    by_type = sharedc.groupby("type").agg(arp=("score", "mean"), ind=("ind", "mean"), n=("score", "size"))
-
-    mentors = m.assign(mkey=m.district + "|" + m.id.astype(str)).set_index("mkey")
     arps = []
-    for k, r in P.sort_values("generosity", ascending=False).iterrows():
-        mt = mentors.loc[k]
+    ids = {}
+    for k, r in P.sort_values(["district", "name"]).iterrows():
+        sid = k.split("|")[0] + "-" + str(len(ids))
+        ids[k] = sid
         mm = mon.loc[k] if k in mon.index.get_level_values(0) else None
-        arps.append(dict(
-            id=k, name=mt["name"], district=mt["district"], block=mt["block"], type=r.type,
-            generosity=r2(r.generosity), sharedN=int(r.shared_n) if not pd.isna(r.shared_n) else 0,
-            variety=r2(r.variety), flnAllYes=r2(r.fln_allyes), gAllYes=r2(r.g_allyes), noPlan=r2(r.no_plan),
-            flnScore=r2(r.fln_score), visits=int(r.n_obs), months=int(r.months), visitsPerMonth=r2(r.visits_pm, 1),
-            targetShare=r2(r.target_share), schools=int(r.schools), adoptedShare=r2(r.adopted_share),
-            minutes=r2(r.minutes, 0), attendance=r2(r.attendance), spotN=int(r.spot_n) if not pd.isna(r.spot_n) else 0,
-            spotAllSaksham=r2(r.spot_allsak), spotVsBlock=r2(r.spot_vs_block),
-            monthly=[] if mm is None else [[mo, int(x.n), r2(x.allyes, 2)] for mo, x in mm.iterrows()],
-        ))
+        rec = dict(id=sid, name=r["name"], district=r.district, block=r.block, type=r.type)
+        for c in P.columns.drop(["name", "district", "block", "type"]):
+            rec[c] = int(r[c]) if c in ("visits", "months", "schools", "flnForms") and not pd.isna(r[c]) else r3(r[c])
+        rec["items"] = [r3(prof.at[k, i["id"]]) if k in prof.index else None for i in items_meta]
+        rec["monthly"] = [] if mm is None else [[mo, int(x.n), r3(x.allyes, 2)] for mo, x in mm.iterrows()]
+        arps.append(rec)
 
+    # ---- system-wide numbers for the story and the FLN page ----
     typed = P[P.type != "few"].copy()
-    ind = v[v.category != "ARP"]
-    # How much of each style measure is shared by ARPs of the same block, against what
-    # random grouping into blocks of the same sizes would give.
-    typed["bkey"] = [mentors.loc[k, "district"] + "|" + mentors.loc[k, "block"] for k in typed.index]
-    def share_by(col, key):
+    typed["bkey"] = typed.district + "|" + typed.block
+
+    def block_share(col):
         x = typed.dropna(subset=[col])
-        gm = x.groupby(key)[col].transform("mean")
-        return r2(1 - ((x[col] - gm) ** 2).sum() / ((x[col] - x[col].mean()) ** 2).sum(), 2)
+        gm = x.groupby("bkey")[col].transform("mean")
+        return r3(1 - ((x[col] - gm) ** 2).sum() / ((x[col] - x[col].mean()) ** 2).sum(), 2)
     k = typed.bkey.nunique()
-    by_block = dict(generosity=share_by("generosity", "bkey"), variety=share_by("variety", "bkey"),
-                    chance=r2((k - 1) / (len(typed) - 1), 2), blocks=int(k))
+
+    rng = np.random.default_rng(7)
+    mo = sorted(a.month.unique())
+    half = a.month.map({m: i % 2 for i, m in enumerate(mo)})
+
+    def split(col_fn):
+        h0, h1 = col_fn(a[half == 0]), col_fn(a[half == 1])
+        j = pd.concat([h0, h1], axis=1).dropna()
+        return r3(j.iloc[:, 0].corr(j.iloc[:, 1]), 2)
+    fl_a = lambda x: x[fl.loc[x.index]]  # noqa: E731
+    reliability = dict(
+        variety=split(lambda x: (lambda p: (4 * p * (1 - p)).mean(axis=1))(fl_a(x).groupby("mkey")[fln_ids[:-1]].mean())),
+        flnLean=split(lambda x: fl_a(x).groupby("mkey").fln_lean.mean()),
+        partial=split(lambda x: fl_a(x).groupby("mkey").partial.mean()),
+        noPlan=split(lambda x: x[x.form == "G"].groupby("mkey").lp_ready.apply(lambda s: (s == 0).mean())),
+        allPresent=split(lambda x: x.groupby("mkey").all_present.mean()),
+        teacherRepeat=split(lambda x: x.groupby("mkey").seen_teacher.mean()),
+        hindiShare=split(lambda x: fl_a(x).groupby("mkey").form.apply(lambda s: (s == "FH").mean())),
+        minutes=split(lambda x: x.groupby("mkey").minutes.median()),
+    )
+
+    # Fixed facts on revisits: observed changes vs what answering at random (at the rater's own yes-rate) would give.
+    fobs, fexp = [], []
+    for kf in fact_ids[:4]:
+        pk = a.groupby("mkey")[kf].mean()
+        x = rv[rv.arp]
+        fobs.append(x["flip_" + kf].mean())
+        fexp.append((2 * pk * (1 - pk)).reindex(x.mkey).mean())
+    # Same ARP, same school, same grade and FLN form, consecutive visits: does the classroom lean repeat?
+    f2 = af.copy()
+    f2["cell"] = f2.skey + "|" + f2.form + "|" + f2.grade.astype(str)
+    f2 = f2.sort_values(["mkey", "cell", "date"])
+    f2["prev"] = f2.groupby(["mkey", "cell"]).fln_lean.shift()
+    pr = f2.dropna(subset=["prev", "fln_lean"])
+    pr = pr[pr.groupby("mkey").mkey.transform("size") >= 15]
+    cc = pr.groupby("mkey").apply(lambda x: x.fln_lean.corr(x.prev)).dropna()
+    # How much of the agreement between FLN items comes from who fills the form.
+    X = af[["guide_used", "tlm", "peer", "diary", "particip", "tracker", "nipun", "remedial", "wb_done", "wb_checked", "mkey"]].dropna()
+    cols = X.columns[:-1]
+    tri = np.triu_indices(len(cols), 1)
+    corr_raw = X[cols].corr().values[tri].mean()
+    corr_within = (X[cols] - X.groupby("mkey")[cols].transform("mean")).corr().values[tri].mean()
+
+    fla = a[fl.loc[a.index]]
+    by_grade = {}
+    for (form, grade), x in fla.groupby(["form", "grade"]):
+        by_grade[f"{form}{int(grade)}"] = dict(n=int(len(x)), items=[r3(x[i].mean()) for i in fln_ids],
+                                               partial=[r3(x[i].between(0.01, 0.99).sum() / max(x[i].notna().sum(), 1)) for i in fln_ids])
+    options = {}
+    for i in GRADED:
+        vals = fla[i].dropna().round(2)
+        options[i] = {f"{form}{int(gr)}": [[r3(val, 2), r3(c)] for val, c in x[i].dropna().round(2).value_counts(normalize=True).sort_index().items()]
+                      for (form, gr), x in fla.groupby(["form", "grade"]) if x[i].notna().any()}
+    contra = {key: dict(premise=int((cpre[key] & fl).sum()), hit=int((chit[key] & fl).sum())) for key in cpre}
+
     out = dict(
         meta=dict(
             generatedAt=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            dateFrom=v.date.min(), dateTo=v.date.max(), visits=int(len(v)), arpVisits=int(len(a)),
-            independentVisits=int(len(ind)), independents=int(ind.mkey.nunique()), districts=sorted(v.district.unique()),
-            reliability=reliability, minVisits=MIN_VISITS, minShared=MIN_SHARED,
-            thresholds=dict(lowVariety=LOW_VARIETY, highVariety=HIGH_VARIETY, allClearSpot=ALL_CLEAR_SPOT,
-                            strictGenerosity=STRICT_GENEROSITY),
-            types=TYPES + [dict(id="few", label="Too little data", rule=f"Fewer than {MIN_VISITS} visits or {MIN_SHARED} shared-school comparisons")],
-            arpGenerosityMean=r2(typed.generosity.mean()),
-            byBlock=by_block,
-            corr=dict(generosity_visits=r2(typed.generosity.corr(typed.visits_pm), 2),
-                      generosity_spot=r2(typed.generosity.corr(typed.spot_allsak), 2),
-                      variety_allyes=r2(typed.variety.corr(typed.fln_allyes), 2)),
+            dateFrom=d.date.min().strftime("%Y-%m-%d"), dateTo=d.date.max().strftime("%Y-%m-%d"),
+            visits=int(len(d)), arpVisits=int(len(a)), flnArpForms=int(len(fla)), districts=sorted(d.district.dropna().unique()),
+            minVisits=MIN_VISITS, minFln=MIN_FLN, types=TYPES,
+            thresholds=dict(lowVariety=LOW_VARIETY, highVariety=HIGH_VARIETY), badges=BADGES,
+            items=items_meta, reliability=reliability,
+            byBlock=dict(variety=block_share("variety"), allPresent=block_share("allPresent"),
+                         chance=r3((k - 1) / (len(typed) - 1), 2), blocks=int(k)),
+            facts=dict(observed=r3(np.nanmean(fobs)), expected=r3(np.nanmean(fexp)), revisits=int(rv.arp.sum())),
+            classConsistency=dict(median=r3(cc.median(), 2), arps=int(len(cc))),
+            itemCorr=dict(raw=r3(corr_raw, 2), withinArp=r3(corr_within, 2)),
+            corr=dict(variety_allPresent=r3(typed.variety.corr(typed.allPresent), 2),
+                      variety_noPlan=r3(typed.variety.corr(typed.noPlan), 2),
+                      variety_visits=r3(typed.variety.corr(typed.visitsPerMonth), 2),
+                      variety_partial=r3(typed.variety.corr(typed.partial), 2)),
         ),
-        byType={t: dict(arp=r2(x.arp), ind=r2(x.ind), n=int(x.n)) for t, x in by_type.iterrows()},
+        fln=dict(byGrade=by_grade, options=options, contradictions=contra),
         arps=arps,
     )
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as fh:
         json.dump(out, fh, ensure_ascii=False, separators=(",", ":"))
-    print(f"  -> {OUT}: {len(arps)} ARPs; types {P.type.value_counts().to_dict()}; reliability {reliability}")
-    print(f"  by type (ARP vs DIET/SRG in shared cells): {out['byType']}")
+    print(f"  -> {OUT}: {len(arps)} ARPs; styles {P.type.value_counts().to_dict()}")
+    print(f"  reliability {reliability}")
+    print(f"  facts {out['meta']['facts']} classConsistency {out['meta']['classConsistency']} itemCorr {out['meta']['itemCorr']}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FLN Forms Deep Dive</title>
+<meta name="description" content="How ARPs answer the Grade 1–3 FLN observation forms, by grade and subject, and where the answers contradict each other.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+header.top { padding: 40px 0 10px; }
+header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
+.big { display: flex; flex-wrap: wrap; gap: 20px 44px; margin: 10px 0 0; }
+.big div b { display: block; font-family: var(--serif); font-size: clamp(28px, 4vw, 42px); line-height: 1; }
+.big div span { font-size: 13px; color: var(--muted); }
+.legendrow { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-2); margin: 0 0 8px; }
+.legendrow i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.legendrow i.sq { border-radius: 2px; }
+.heatwrap { overflow: auto; max-height: 80svh; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+</style>
+</head>
+<body>
+<div id="tip" role="tooltip"></div>
+<nav class="nav"><div class="wrap"><b>ARP form study</b><a href="index.html">Story</a><a href="explore.html">Explore &amp; compare</a><a href="fln.html" class="on">FLN deep dive</a><a href="../">Dashboard</a></div></nav>
+
+<header class="top"><div class="wrap">
+  <div class="kicker">Grades 1–3 · Hindi and Maths</div>
+  <h1>Inside the FLN forms</h1>
+  <p class="lead">The Grade 1–3 FLN forms are the core of supportive supervision: the Sandarshika, teaching material, the weekly tracker, the NIPUN Talika, workbooks and remedial work. This page looks at how ARPs answer them. Every comparison keeps grades and subjects apart, so a difference never comes from observing a different grade.</p>
+  <div class="big">
+    <div><b class="num" id="nForms"></b><span>Grade 1–3 FLN forms filled by ARPs</span></div>
+    <div><b class="num" id="nHindi"></b><span>in Hindi</span></div>
+    <div><b class="num" id="nMaths"></b><span>in Maths</span></div>
+    <div><b class="num" id="nG3"></b><span>in Grade 3 (Grades 1 and 2 dominate)</span></div>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <section class="block">
+    <h2 class="sec">Grade barely changes the answers</h2>
+    <p class="lead">Share of forms marking each practice as seen, by grade. You might expect Grade 3 classrooms to look different from Grade 1. On most questions the three grades sit within 1–3 points of each other. The exceptions are workbook availability, which falls with grade, and reading-fluency records in Hindi, which rise.</p>
+    <div class="legendrow" id="gradeLegend"></div>
+    <div class="grid2"><div class="panel"><h3 class="sub" style="margin-top:0">Hindi</h3><svg class="chart" id="gH"></svg></div><div class="panel"><h3 class="sub" style="margin-top:0">Maths</h3><svg class="chart" id="gM"></svg></div></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">Hindi and Maths forms differ more than grades do</h2>
+    <p class="lead">Average across Grades 1–3, weighting each grade equally so the subjects compare like for like. Maths forms report more peer learning, more teacher diaries and more participation.</p>
+    <div class="legendrow"><span><i style="background:#f2b134"></i>Hindi</span><span><i style="background:#4c9bf0"></i>Maths</span></div>
+    <div class="panel"><svg class="chart" id="subj"></svg></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">How the middle answers are used</h2>
+    <p class="lead">Six questions allow answers between yes and no. The bars show how answers split, separately for each grade. Across all of them, the top answer is chosen far more often than the middle ones.</p>
+    <div class="controls"><label>Subject <select id="optForm"><option value="FH">Hindi</option><option value="FM">Maths</option></select></label></div>
+    <div class="legendrow" id="optLegend"></div>
+    <div class="panel"><svg class="chart" id="opts"></svg></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">Answers that contradict each other</h2>
+    <p class="lead">Some answers rule out later ones. Each bar shows, of the forms where the first answer was given, how many still gave the contradicting second answer.</p>
+    <div class="panel"><svg class="chart" id="contra"></svg></div>
+    <p class="note" id="contraStyle"></p>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">Do the questions measure the classroom, or the recorder?</h2>
+    <p class="lead" id="corrText"></p>
+    <div class="panel"><h3 class="sub" style="margin-top:0">FLN answers by recording style</h3><p class="note">Average share marked as seen per question, for each style.</p><svg class="chart" id="bystyle"></svg></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">Every ARP's FLN answers</h2>
+    <p class="lead">One row per ARP, sorted by answer variety; brighter means marked as seen more often. Choose a district to see names. Click a row for the full profile.</p>
+    <div class="controls"><label>District <select id="hd"><option value="">All districts</option></select></label>
+      <label>Sort by <select id="hsort"><option value="variety">Answer variety</option><option value="flnLean">Positivity</option><option value="partial">In-between answers</option><option value="contradictions">Contradictions</option><option value="name">Name</option></select></label></div>
+    <div class="heatwrap"><svg id="heat"></svg></div>
+  </section>
+</main>
+
+<footer><div class="wrap">Built from the mentor-app exports behind the <a href="../">ARP visit dashboard</a> · updated <span data-bind="generated"></span> · <a href="index.html#method">how this was measured</a></div></footer>
+<dialog id="pf" aria-labelledby="pfname"></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="common.js"></script>
+<script>
+(async function () {
+  const { STYLE_ORDER, COLOR, pct, fmtInt } = S;
+  const data = await S.load();
+  const fln = data.fln, T = data.TYPES;
+  const items = data.meta.items.map((it, i) => ({ ...it, i })).filter((it) => it.group === "fln");
+  const GRADE_COL = { 1: "#a9cdf7", 2: "#5a9fe8", 3: "#1f5fae" };
+  const $ = (id) => document.getElementById(id);
+  const n = (k) => (fln.byGrade[k] ? fln.byGrade[k].n : 0);
+  const tot = ["FH1", "FH2", "FH3", "FM1", "FM2", "FM3"].reduce((s, k) => s + n(k), 0);
+  $("nForms").textContent = fmtInt(tot);
+  $("nHindi").textContent = pct((n("FH1") + n("FH2") + n("FH3")) / tot);
+  $("nMaths").textContent = pct((n("FM1") + n("FM2") + n("FM3")) / tot);
+  $("nG3").textContent = pct((n("FH3") + n("FM3")) / tot);
+  $("gradeLegend").innerHTML = [1, 2, 3].map((g) => `<span><i style="background:${GRADE_COL[g]}"></i>Grade ${g}</span>`).join("");
+
+  // Dot rows: one row per item, one dot per series.
+  function dotRows(svg, rows, series, opts = {}) {
+    svg.selectAll("*").remove();
+    const w = svg.node().getBoundingClientRect().width, labW = Math.min(w * 0.46, 280), rowH = 24, m = { t: 8, b: 30 };
+    const h = m.t + rows.length * rowH + m.b; svg.attr("height", h);
+    const lo = opts.lo ?? 0.5;
+    const x = d3.scaleLinear().domain([lo, 1]).range([labW, w - 12]);
+    x.ticks(5).forEach((t) => svg.append("line").attr("class", "gridline").attr("x1", x(t)).attr("x2", x(t)).attr("y1", m.t).attr("y2", h - m.b));
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${h - m.b + 4})`).call(d3.axisBottom(x).ticks(w < 500 ? 4 : 6).tickFormat(d3.format(".0%")).tickSizeOuter(0));
+    rows.forEach((r, i) => {
+      const y = m.t + i * rowH + rowH / 2;
+      S.fitText(svg.append("text").attr("class", "lbl").attr("x", 0).attr("y", y + 4).text(r.label), labW - 10);
+      const vals = series.map((s) => [s, r.vals[s.key]]).filter(([, v]) => v != null);
+      if (vals.length > 1) svg.append("line").attr("x1", x(d3.min(vals, (v) => v[1]))).attr("x2", x(d3.max(vals, (v) => v[1]))).attr("y1", y).attr("y2", y).attr("stroke", "var(--line)").attr("stroke-width", 3);
+      vals.forEach(([s, v]) => svg.append("circle").attr("cx", x(Math.max(lo, v))).attr("cy", y).attr("r", 6).attr("fill", s.color).attr("stroke", "var(--bg)").attr("stroke-width", 1.5)
+        .on("pointermove", (ev) => S.showTip(ev, `<b>${r.label}</b>${s.label}: ${pct(v)}`)).on("pointerleave", S.hideTip));
+    });
+  }
+
+  // 1. by grade
+  function drawGrades() {
+    ["FH", "FM"].forEach((f) => {
+      const rows = items.filter((it) => fln.byGrade[f + "1"] && fln.byGrade[f + "1"].items[it.i] != null)
+        .map((it) => ({ label: it.label, vals: Object.fromEntries([1, 2, 3].map((g) => [g, fln.byGrade[f + g]?.items[it.i]])) }));
+      dotRows(d3.select("#g" + (f === "FH" ? "H" : "M")), rows, [1, 2, 3].map((g) => ({ key: g, label: "Grade " + g, color: GRADE_COL[g] })));
+    });
+  }
+  // 2. Hindi vs Maths, equal-weighted grades
+  function drawSubj() {
+    const avg = (f, i) => d3.mean([1, 2, 3], (g) => fln.byGrade[f + g]?.items[i]);
+    const rows = items.filter((it) => avg("FM", it.i) != null && avg("FH", it.i) != null).map((it) => ({ label: it.label, vals: { FH: avg("FH", it.i), FM: avg("FM", it.i) } }))
+      .sort((a, b) => (b.vals.FM - b.vals.FH) - (a.vals.FM - a.vals.FH));
+    dotRows(d3.select("#subj"), rows, [{ key: "FH", label: "Hindi", color: "#f2b134" }, { key: "FM", label: "Maths", color: "#4c9bf0" }]);
+  }
+  // 3. options
+  const OPT = {
+    particip: [[1, "Most (70%+)"], [0.5, "Some (50–70%)"], [0, "Few or none"]],
+    tracker: [[1, "Filled regularly, groups formed"], [0.67, "Filled regularly, not fully used"], [0.33, "Partly filled"], [0, "Not filled"]],
+    remedial: [[1, "Yes"], [0.5, "Partly"], [0, "No"]],
+    wb_done: [[1, "All children"], [0.5, "Some"], [0, "None"]],
+    wb_checked: [[1, "All checked"], [0.5, "Some"], [0, "None"]],
+    fluency: [[1, "All children"], [0.5, "Some"], [0, "None"]],
+  };
+  $("optLegend").innerHTML = `<span><i class="sq" style="background:#f2b134"></i>top answer</span><span><i class="sq" style="background:#b88a3a"></i>middle answers</span><span><i class="sq" style="background:#5f6670"></i>lowest answer</span>`;
+  function drawOpts() {
+    const f = $("optForm").value, svg = d3.select("#opts"); svg.selectAll("*").remove();
+    const w = svg.node().getBoundingClientRect().width, labW = Math.min(w * 0.34, 230), rowH = 22, blockGap = 16;
+    const its = Object.keys(OPT).filter((k) => fln.options[k] && fln.options[k][f + "1"]);
+    const h = its.length * (3 * rowH + blockGap + 18) + 10; svg.attr("height", h);
+    const x = d3.scaleLinear().domain([0, 1]).range([labW, w - 8]);
+    let y = 4;
+    its.forEach((k) => {
+      const it = items.find((i) => i.id === k);
+      S.fitText(svg.append("text").attr("class", "lbl-strong").attr("x", 0).attr("y", y + 12).text(it.label), w);
+      y += 18;
+      [1, 2, 3].forEach((g) => {
+        const dist = new Map((fln.options[k][f + g] || []).map(([v, s]) => [v, s]));
+        svg.append("text").attr("class", "lbl").attr("x", 0).attr("y", y + rowH / 2 + 4).text("Grade " + g);
+        let x0 = 0;
+        OPT[k].forEach(([v, lab], j) => {
+          const s = dist.get(v) || 0; if (!s) return;
+          const col = j === 0 ? "#f2b134" : j === OPT[k].length - 1 ? "#5f6670" : "#b88a3a";
+          svg.append("rect").attr("x", x(x0) + (x0 > 0 ? 2 : 0)).attr("y", y + 2).attr("height", rowH - 5).attr("rx", 3).attr("width", Math.max(0, x(x0 + s) - x(x0) - (x0 > 0 ? 2 : 0))).attr("fill", col)
+            .on("pointermove", (ev) => S.showTip(ev, `<b>${it.label}</b>Grade ${g}: ${lab} ${pct(s)}`)).on("pointerleave", S.hideTip);
+          if (x(x0 + s) - x(x0) > 34) svg.append("text").attr("x", x(x0) + 6).attr("y", y + rowH / 2 + 3).attr("fill", j === 0 ? "#141a22" : "var(--text)").attr("font-size", 11.5).attr("pointer-events", "none").text(pct(s));
+          x0 += s;
+        });
+        y += rowH;
+      });
+      y += blockGap;
+    });
+  }
+  $("optForm").onchange = drawOpts;
+  // 4. contradictions
+  const CON = [["nipun", "Tracker not filled at all → NIPUN Talika updated to learning levels"], ["remedial", "Tracker not filled at all → remedial work with Group A done"],
+    ["guide", "Teacher doesn't have the Sandarshika → teacher referred to it"], ["wb", "No child did last week's worksheets → all checked by the teacher"]];
+  function drawContra() {
+    const svg = d3.select("#contra"); svg.selectAll("*").remove();
+    const w = svg.node().getBoundingClientRect().width, narrow = w < 560, rowH = narrow ? 58 : 40, labW = narrow ? 0 : Math.min(w * 0.5, 420);
+    svg.attr("height", CON.length * rowH + 34);
+    const x = d3.scaleLinear().domain([0, 0.5]).range([labW, w - 60]);
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${CON.length * rowH + 6})`).call(d3.axisBottom(x).ticks(5).tickFormat(d3.format(".0%")).tickSizeOuter(0));
+    CON.forEach(([k, lab], i) => {
+      const c = fln.contradictions[k], r = c.hit / Math.max(c.premise, 1), y = i * rowH;
+      S.fitText(svg.append("text").attr("class", "lbl").attr("x", 0).attr("y", y + 16).text(lab), narrow ? w : labW - 10);
+      const by = narrow ? y + 24 : y + 4;
+      svg.append("rect").attr("x", x(0)).attr("y", by).attr("height", 22).attr("rx", 4).attr("width", 0).attr("fill", "var(--accent)")
+        .on("pointermove", (ev) => S.showTip(ev, `${fmtInt(c.hit)} of ${fmtInt(c.premise)} forms`)).on("pointerleave", S.hideTip)
+        .transition().duration(S.reduce ? 0 : 800).attr("width", x(r) - x(0));
+      svg.append("text").attr("class", "lbl-strong").attr("x", x(r) + 6).attr("y", by + 16).text(`${pct(r)}`);
+    });
+    const m = (t) => d3.mean(data.typed.filter((d) => d.type === t), (d) => d.contradictions);
+    $("contraStyle").textContent = `By recording style, the average ARP gives a contradicting answer on ${STYLE_ORDER.map((t) => `${pct(m(t))} of chances (${T[t].label})`).join(", ")}.`;
+  }
+  // 5. recorder vs classroom
+  const ic = data.meta.itemCorr;
+  $("corrText").textContent = `If the answers described each classroom, questions would agree with each other mostly because good classrooms do many things well. Across all FLN forms, the average correlation between two questions is ${ic.raw.toFixed(2)}. Within a single ARP's forms it drops to ${ic.withinArp.toFixed(2)}. About ${pct(1 - ic.withinArp / ic.raw)} of the agreement between questions comes from who filled in the form.`;
+  function drawByStyle() {
+    const rows = items.map((it) => ({ label: it.label, vals: Object.fromEntries(STYLE_ORDER.map((t) => [t, d3.mean(data.typed.filter((d) => d.type === t), (d) => d.items[it.i])])) }));
+    dotRows(d3.select("#bystyle"), rows, STYLE_ORDER.map((t) => ({ key: t, label: T[t].label, color: COLOR[t] })), { lo: 0.3 });
+  }
+  // 6. heatmap
+  data.meta.districts.forEach((d) => $("hd").append(new Option(d, d)));
+  function drawHeat() {
+    const svg = d3.select("#heat"); svg.selectAll("*").remove();
+    let rows = data.typed.filter((d) => !$("hd").value || d.district === $("hd").value);
+    const k = $("hsort").value;
+    rows.sort(k === "name" ? (a, b) => a.name.localeCompare(b.name) : (a, b) => (a[k] ?? 9) - (b[k] ?? 9));
+    const wrapW = document.querySelector(".heatwrap").getBoundingClientRect().width - 2;
+    const rowH = rows.length > 150 ? 4 : 14, showNames = rowH > 4, nameW = showNames ? Math.min(190, wrapW * 0.32) : 14, headH = 140;
+    const cellW = Math.max(18, (wrapW - nameW - 8) / items.length);
+    svg.attr("width", nameW + cellW * items.length + 8).attr("height", headH + rows.length * rowH + 8);
+    const seq = d3.scaleSequential(d3.interpolateRgb("#141a22", "#f6c25b")).domain([0.3, 1]).clamp(true);
+    items.forEach((it, j) => S.fitText(svg.append("text").attr("class", "lbl").attr("transform", `translate(${nameW + j * cellW + cellW / 2 + 3},${headH - 6}) rotate(-60)`).text(it.label), headH * 1.12));
+    const g = svg.append("g").attr("transform", `translate(0,${headH})`);
+    const row = g.selectAll("g").data(rows).join("g").attr("transform", (d, i) => `translate(0,${i * rowH})`).style("cursor", "pointer").on("click", (ev, d) => S.openProfile(d));
+    row.append("rect").attr("x", nameW - 8).attr("width", 5).attr("height", rowH - (showNames ? 1 : 0)).attr("fill", (d) => COLOR[d.type]);
+    if (showNames) row.append("text").attr("class", "lbl").attr("x", 0).attr("y", rowH / 2 + 4).text((d) => d.name).each(function () { S.fitText(d3.select(this), nameW - 14); });
+    row.selectAll("rect.c").data((d) => items.map((it, j) => [d, it, j])).join("rect").attr("class", "c").attr("x", ([, , j]) => nameW + j * cellW).attr("width", cellW - 1).attr("height", rowH - (showNames ? 1 : 0))
+      .attr("fill", ([d, it]) => (d.items[it.i] == null ? "#101317" : seq(d.items[it.i])))
+      .on("pointermove", (ev, [d, it]) => S.showTip(ev, `<b>${d.name}</b>${it.label}: ${pct(d.items[it.i])}`)).on("pointerleave", S.hideTip);
+  }
+  $("hd").onchange = drawHeat; $("hsort").onchange = drawHeat;
+
+  const all = () => { drawGrades(); drawSubj(); drawOpts(); drawContra(); drawByStyle(); drawHeat(); };
+  all(); addEventListener("resize", S.debounce(all, 200));
+  S.wireProfile();
+})();
+</script>
+</body>
+</html>

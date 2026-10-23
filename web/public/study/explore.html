@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explore ARP Forms</title>
+<meta name="description" content="Search, sort, plot and compare how every ARP fills in the classroom-observation form.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+header.top { padding: 40px 0 10px; }
+header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
+.view { display: none; }
+.view.on { display: block; }
+.heatwrap { overflow: auto; max-height: 78svh; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.cmppick { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.cmppick .p { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 6px 5px 12px; background: var(--surface-2); font-size: 14px; }
+.cmppick .p i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.cmppick .p button { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; }
+.metricdesc { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+td.cb, th.cb { width: 34px; text-align: center; }
+.stylebar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; min-width: 120px; }
+.stylebar i { display: block; height: 100%; }
+#suggest { position: absolute; z-index: 30; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; max-height: 260px; overflow: auto; width: min(360px, calc(100vw - 32px)); }
+#suggest div { padding: 7px 10px; cursor: pointer; font-size: 14px; }
+#suggest div:hover { background: var(--line); }
+</style>
+</head>
+<body>
+<div id="tip" role="tooltip"></div>
+<nav class="nav"><div class="wrap"><b>ARP form study</b><a href="index.html">Story</a><a href="explore.html" class="on">Explore &amp; compare</a><a href="fln.html">FLN deep dive</a><a href="../">Dashboard</a></div></nav>
+
+<header class="top"><div class="wrap">
+  <div class="kicker">Explore</div>
+  <h1>Every ARP, every question</h1>
+  <p class="lead">Filter to a district, block or style, then sort the table, plot any two measures against each other, scan the answer patterns question by question, or put up to four ARPs side by side. Click any ARP for their full profile. Filters and views are kept in the link, so you can share what you're looking at.</p>
+</div></header>
+
+<main class="wrap">
+  <div class="controls">
+    <input id="q" type="search" placeholder="Search name or block" aria-label="Search ARPs">
+    <select id="fd" aria-label="District"><option value="">All districts</option></select>
+    <select id="fb" aria-label="Block"><option value="">All blocks</option></select>
+    <select id="fs" aria-label="Style"><option value="">All styles</option></select>
+    <select id="fbadge" aria-label="Marker"><option value="">Any marker</option></select>
+    <label><input type="checkbox" id="ffew"> include ARPs with too little data</label>
+  </div>
+  <p class="note" id="count"></p>
+  <div class="tabs" role="tablist">
+    <button data-view="table">Table</button><button data-view="scatter">Scatter</button><button data-view="items">Question by question</button>
+    <button data-view="compare">Compare</button><button data-view="groups">Districts &amp; blocks</button>
+  </div>
+
+  <section class="view" id="v-table">
+    <div class="tablewrap" style="max-height:78svh"><table class="data" id="tbl"></table></div>
+    <p class="note">Tick up to four ARPs to compare them. Click a column to sort. Hover a column header for its definition.</p>
+  </section>
+
+  <section class="view" id="v-scatter">
+    <div class="controls">
+      <label>Across <select id="sx"></select></label>
+      <label>Up <select id="sy"></select></label>
+      <label>Colour <select id="sc"><option value="type">Style</option><option value="district">District</option></select></label>
+    </div>
+    <p class="metricdesc" id="sdesc"></p>
+    <div class="panel"><svg class="chart" id="scat"></svg></div>
+  </section>
+
+  <section class="view" id="v-items">
+    <div class="controls">
+      <label>Sort rows by <select id="hs"></select></label>
+      <label>Show <select id="hm"><option value="raw">share marked as seen</option><option value="diff">difference from the median ARP</option></select></label>
+    </div>
+    <p class="metricdesc">Each row is an ARP and each column a question. Grade 1–3 FLN questions use the FLN forms, Grade 4–8 questions the Grade 4–8 form, and school questions every visit.</p>
+    <div class="heatwrap"><svg id="heat"></svg></div>
+  </section>
+
+  <section class="view" id="v-compare">
+    <div class="controls" style="position:relative">
+      <input id="cadd" type="search" placeholder="Add an ARP to compare (up to 4)" aria-label="Add an ARP to compare" autocomplete="off">
+      <div id="suggest" hidden></div>
+      <button class="btn" id="cclear">Clear</button>
+    </div>
+    <div class="cmppick" id="cpick"></div>
+    <div id="cbody"></div>
+  </section>
+
+  <section class="view" id="v-groups">
+    <div class="controls">
+      <label>Group by <select id="gby"><option value="district">District</option><option value="block">Block</option></select></label>
+      <label>Spread of <select id="gm"></select></label>
+    </div>
+    <div class="panel"><svg class="chart" id="gstrip"></svg></div>
+    <h3 class="sub">Averages</h3>
+    <div class="tablewrap" style="max-height:70svh"><table class="data" id="gtbl"></table></div>
+  </section>
+</main>
+
+<footer><div class="wrap">Built from the mentor-app exports behind the <a href="../">ARP visit dashboard</a> · updated <span data-bind="generated"></span> · <a href="index.html#method">how this was measured</a></div></footer>
+<dialog id="pf" aria-labelledby="pfname"></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="common.js"></script>
+<script>
+(async function () {
+  const { STYLE_ORDER, COLOR, METRICS, M, pct, fmtInt } = S;
+  const data = await S.load();
+  const T = data.TYPES, all = data.arps;
+  const CMP_COLORS = ["#3987e5", "#d95926", "#199e70", "#9085e9"];
+  const DIST_COLORS = d3.scaleOrdinal(data.meta.districts, ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#9085e9", "#e66767", "#7fb800", "#2ab3c0", "#c3c2b7"]);
+
+  // ---- state in the URL ----
+  const P = new URLSearchParams(location.search);
+  const st = { q: P.get("q") || "", d: P.get("d") || "", b: P.get("b") || "", s: P.get("s") || "", badge: P.get("m") || "", few: P.get("few") === "1",
+    view: P.get("view") || "table", sort: P.get("sort") || "variety", dir: P.get("dir") || "asc", x: P.get("x") || "variety", y: P.get("y") || "partial",
+    color: P.get("c") || "type", hs: P.get("hs") || "variety", hm: P.get("hm") || "raw", gby: P.get("g") || "district", gm: P.get("gm") || "variety" };
+  if (location.hash === "#compare") st.view = "compare";
+  function save() {
+    const p = new URLSearchParams();
+    const def = { view: "table", sort: "variety", dir: "asc", x: "variety", y: "partial", c: "type", hs: "variety", hm: "raw", g: "district", gm: "variety" };
+    const map = { q: st.q, d: st.d, b: st.b, s: st.s, m: st.badge, few: st.few ? "1" : "", view: st.view, sort: st.sort, dir: st.dir, x: st.x, y: st.y, c: st.color, hs: st.hs, hm: st.hm, g: st.gby, gm: st.gm };
+    Object.entries(map).forEach(([k, v]) => { if (v && v !== def[k]) p.set(k, v); });
+    history.replaceState(null, "", location.pathname + (p.toString() ? "?" + p : "") + (location.hash.startsWith("#arp=") ? location.hash : ""));
+  }
+
+  // ---- filters ----
+  const $ = (id) => document.getElementById(id);
+  data.meta.districts.forEach((d) => $("fd").append(new Option(d, d)));
+  [...STYLE_ORDER, "few"].forEach((t) => $("fs").append(new Option(T[t].label, t)));
+  data.meta.badges.forEach((b) => $("fbadge").append(new Option(b.label, b.id)));
+  function fillBlocks() {
+    const blocks = [...new Set(all.filter((d) => !st.d || d.district === st.d).map((d) => d.block))].sort();
+    $("fb").innerHTML = '<option value="">All blocks</option>' + blocks.map((b) => `<option>${b}</option>`).join("");
+    if (!blocks.includes(st.b)) st.b = ""; $("fb").value = st.b;
+  }
+  $("q").value = st.q; $("fd").value = st.d; fillBlocks(); $("fs").value = st.s; $("fbadge").value = st.badge; $("ffew").checked = st.few;
+  const filtered = () => {
+    const s = st.q.trim().toLowerCase();
+    return all.filter((d) => (st.few || d.type !== "few" || st.s === "few") && (!st.d || d.district === st.d) && (!st.b || d.block === st.b) && (!st.s || d.type === st.s)
+      && (!st.badge || d.badges.some((b) => b.id === st.badge)) && (!s || d.name.toLowerCase().includes(s) || (d.block || "").toLowerCase().includes(s)));
+  };
+  [["q", "q", "input"], ["fd", "d", "change"], ["fb", "b", "change"], ["fs", "s", "change"], ["fbadge", "badge", "change"]].forEach(([id, k, ev]) =>
+    $(id).addEventListener(ev, () => { st[k] = $(id).value; if (k === "d") fillBlocks(); refresh(); }));
+  $("ffew").addEventListener("change", () => { st.few = $("ffew").checked; refresh(); });
+
+  // ---- tabs ----
+  const tabs = [...document.querySelectorAll(".tabs button")];
+  function setView(v) { st.view = v; tabs.forEach((b) => b.classList.toggle("on", b.dataset.view === v)); document.querySelectorAll(".view").forEach((s) => s.classList.toggle("on", s.id === "v-" + v)); refresh(); }
+  tabs.forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+
+  // ---- table ----
+  const COLS = ["variety", "flnLean", "flnAllYes", "partial", "contradictions", "noPlan", "gAllYes", "allPresent", "factFlip", "enrSame", "teacherRepeat", "hindiShare", "grade1Share", "minutes", "visitsPerMonth", "targetShare", "schools", "visits"];
+  function drawTable(rows) {
+    const cmp = S.getCompare();
+    const key = st.sort, dir = st.dir === "asc" ? 1 : -1;
+    const val = (d) => (key === "name" || key === "district" || key === "block" ? d[key] : key === "type" ? STYLE_ORDER.indexOf(d.type) : d[key]);
+    rows = rows.slice().sort((a, b) => { const x = val(a), y = val(b); if (x == null) return 1; if (y == null) return -1; return (x < y ? -1 : x > y ? 1 : 0) * dir; });
+    const th = (k, label, n, title = "") => `<th data-k="${k}" class="${n ? "n" : ""} ${k === key ? "sorted" : ""}" title="${title}">${label}${k === key ? (dir > 0 ? " ↑" : " ↓") : ""}</th>`;
+    $("tbl").innerHTML = `<thead><tr><th class="cb">⇄</th>${th("name", "ARP")}${th("district", "District")}${th("block", "Block")}${th("type", "Style")}${COLS.map((c) => th(c, M[c].short, true, M[c].desc)).join("")}</tr></thead>
+      <tbody>${rows.map((d) => `<tr data-id="${d.id}"><td class="cb"><input type="checkbox" aria-label="Compare ${d.name}" ${cmp.includes(d.id) ? "checked" : ""}></td><td><b>${d.name}</b></td><td>${d.district}</td><td>${d.block}</td><td>${S.chip(d.type)}</td>${COLS.map((c) => `<td class="n">${M[c].fmt(d[c])}</td>`).join("")}</tr>`).join("")}</tbody>`;
+    $("tbl").querySelectorAll("th[data-k]").forEach((h) => h.onclick = () => { const k = h.dataset.k; if (st.sort === k) st.dir = st.dir === "asc" ? "desc" : "asc"; else { st.sort = k; st.dir = ["name", "district", "block", "type"].includes(k) ? "asc" : "desc"; } refresh(); });
+  }
+  $("tbl").addEventListener("click", (e) => {
+    const tr = e.target.closest("tbody tr"); if (!tr) return;
+    const id = tr.dataset.id;
+    if (e.target.matches("input[type=checkbox]")) {
+      let list = S.getCompare().filter((x) => x !== id);
+      if (e.target.checked) { if (list.length >= 4) { e.target.checked = false; alert("You can compare up to four ARPs. Untick one first."); return; } list.push(id); }
+      S.setCompare(list); return;
+    }
+    S.openProfile(data.byId.get(id));
+  });
+
+  // ---- scatter ----
+  const scatterable = METRICS.filter((m) => m.id !== "visits");
+  [["sx", "x"], ["sy", "y"]].forEach(([id, k]) => { scatterable.forEach((m) => $(id).append(new Option(m.label, m.id))); $(id).value = st[k]; $(id).onchange = () => { st[k] = $(id).value; refresh(); }; });
+  $("sc").value = st.color; $("sc").onchange = () => { st.color = $("sc").value; refresh(); };
+  function drawScatter(rows) {
+    const svg = d3.select("#scat"); svg.selectAll("*").remove();
+    const w = svg.node().getBoundingClientRect().width, h = Math.max(360, Math.min(620, w * 0.62)), m = { t: 36, r: 16, b: 52, l: 58 };
+    svg.attr("height", h);
+    const mx = M[st.x], my = M[st.y];
+    $("sdesc").innerHTML = `<b>${mx.label}</b>: ${mx.desc || ""}<br><b>${my.label}</b>: ${my.desc || ""}`;
+    const pts = rows.filter((d) => d[st.x] != null && d[st.y] != null);
+    const ext = (k, dom) => { const e = d3.extent(pts, (d) => d[k]); return e[0] == null ? dom : [Math.min(dom[0], e[0]), Math.max(dom[1], e[1])]; };
+    const x = d3.scaleLinear().domain(ext(st.x, mx.domain)).nice().range([m.l, w - m.r]), y = d3.scaleLinear().domain(ext(st.y, my.domain)).nice().range([h - m.b, m.t]);
+    const fmtAxis = (mt) => (v) => mt.fmt(v);
+    svg.append("g").selectAll("line").data(y.ticks(5)).join("line").attr("class", "gridline").attr("x1", m.l).attr("x2", w - m.r).attr("y1", y).attr("y2", y);
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${h - m.b})`).call(d3.axisBottom(x).ticks(w < 500 ? 4 : 7).tickFormat(fmtAxis(mx)).tickSizeOuter(0));
+    svg.append("g").attr("class", "axis").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(fmtAxis(my)).tickSizeOuter(0));
+    S.fitText(svg.append("text").attr("class", "lbl").attr("x", (m.l + w - m.r) / 2).attr("y", h - 12).attr("text-anchor", "middle").text(mx.label), w - 20);
+    S.fitText(svg.append("text").attr("class", "lbl").attr("transform", `translate(14,${(m.t + h - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text(my.label), h - m.t - m.b);
+    const r = pts.length >= 3 ? d3.mean(pts, (d) => (d[st.x] - d3.mean(pts, (p) => p[st.x])) * (d[st.y] - d3.mean(pts, (p) => p[st.y]))) / (d3.deviation(pts, (d) => d[st.x]) * d3.deviation(pts, (d) => d[st.y])) * (pts.length - 1) / pts.length : null;
+    svg.append("text").attr("class", "lbl-strong").attr("x", w - m.r).attr("y", 14).attr("text-anchor", "end").text(`${pts.length} ARPs${r != null && isFinite(r) ? ` · r = ${r.toFixed(2)}` : ""}`);
+    const cmp = S.getCompare();
+    const col = (d) => (st.color === "district" ? DIST_COLORS(d.district) : COLOR[d.type]);
+    svg.append("g").selectAll("circle").data(pts, (d) => d.id).join("circle").attr("class", "dot").attr("r", pts.length > 300 ? 3.6 : 5)
+      .attr("cx", (d) => x(d[st.x])).attr("cy", (d) => y(d[st.y])).attr("fill", col)
+      .on("pointermove", (ev, d) => S.showTip(ev, S.arpTip(d, `<br>${mx.short}: ${mx.fmt(d[st.x])} · ${my.short}: ${my.fmt(d[st.y])}`))).on("pointerleave", S.hideTip)
+      .on("click", (ev, d) => S.openProfile(d));
+    pts.filter((d) => cmp.includes(d.id)).forEach((d) => {
+      svg.append("circle").attr("cx", x(d[st.x])).attr("cy", y(d[st.y])).attr("r", 9).attr("fill", "none").attr("stroke", CMP_COLORS[cmp.indexOf(d.id)]).attr("stroke-width", 2.5).attr("pointer-events", "none");
+      svg.append("text").attr("class", "namelbl").attr("x", x(d[st.x]) + 12).attr("y", y(d[st.y]) + 4).text(d.name);
+    });
+    const lg = svg.append("g").attr("transform", `translate(${m.l},14)`); let xo = 0;
+    (st.color === "district" ? data.meta.districts.filter((ds) => pts.some((d) => d.district === ds)) : STYLE_ORDER).forEach((k) => {
+      const g = lg.append("g").attr("transform", `translate(${xo},0)`); g.append("circle").attr("r", 5).attr("cy", -4).attr("fill", st.color === "district" ? DIST_COLORS(k) : COLOR[k]);
+      const t = g.append("text").attr("class", "lbl").attr("x", 9).text(st.color === "district" ? k : T[k].label); xo += 22 + t.node().getComputedTextLength();
+    });
+    if (xo > w - m.l - 150) lg.remove();
+  }
+
+  // ---- question-by-question heatmap ----
+  const sortable = METRICS.filter((m) => !["visits"].includes(m.id));
+  sortable.forEach((m) => $("hs").append(new Option(m.label, m.id))); $("hs").append(new Option("Name", "name"));
+  $("hs").value = st.hs; $("hm").value = st.hm;
+  $("hs").onchange = () => { st.hs = $("hs").value; refresh(); }; $("hm").onchange = () => { st.hm = $("hm").value; refresh(); };
+  function drawHeat(rows) {
+    const items = data.meta.items, svg = d3.select("#heat"); svg.selectAll("*").remove();
+    rows = rows.slice().sort(st.hs === "name" ? (a, b) => a.name.localeCompare(b.name) : (a, b) => (a[st.hs] ?? 9) - (b[st.hs] ?? 9));
+    const wrapW = $("v-items").getBoundingClientRect().width - 2;
+    const rowH = rows.length > 150 ? 4 : 15, showNames = rowH >= 12;
+    const nameW = showNames ? Math.min(180, wrapW * 0.3) : 14, headH = 170;
+    const cellW = Math.max(16, (wrapW - nameW - 10) / items.length), w = nameW + cellW * items.length + 10;
+    svg.attr("width", w).attr("height", headH + rows.length * rowH + 10);
+    const groupsX = {}; items.forEach((it, i) => { (groupsX[it.group] = groupsX[it.group] || []).push(i); });
+    const seq = d3.scaleSequential(d3.interpolateRgb("#141a22", "#f6c25b")).domain([0.3, 1]).clamp(true);
+    const divColor = (v) => { const t = Math.max(-1, Math.min(1, v / 0.4)); return t < 0 ? d3.interpolateRgb("#262c34", "#4c9bf0")(-t) : d3.interpolateRgb("#262c34", "#f2b134")(t); };
+    items.forEach((it, i) => {
+      const t = svg.append("text").attr("class", "lbl").attr("transform", `translate(${nameW + i * cellW + cellW / 2 + 3},${headH - 6}) rotate(-60)`).text(it.label);
+      S.fitText(t, (headH - 40) / Math.sin(Math.PI / 3));
+    });
+    Object.entries({ fln: "Grade 1–3 FLN", g: "Grade 4–8", school: "School" }).forEach(([g, lab]) => {
+      const ix = groupsX[g]; if (!ix) return;
+      svg.append("line").attr("x1", nameW + ix[0] * cellW + 2).attr("x2", nameW + (ix[ix.length - 1] + 1) * cellW - 2).attr("y1", 8).attr("y2", 8).attr("stroke", "var(--text-2)");
+      S.fitText(svg.append("text").attr("class", "lbl-strong").attr("x", nameW + ix[0] * cellW + 2).attr("y", 24).text(lab), ix.length * cellW);
+    });
+    const g = svg.append("g").attr("transform", `translate(0,${headH})`);
+    const row = g.selectAll("g").data(rows).join("g").attr("transform", (d, i) => `translate(0,${i * rowH})`).style("cursor", "pointer").on("click", (ev, d) => S.openProfile(d));
+    row.append("rect").attr("x", nameW - 8).attr("width", 5).attr("height", rowH - (rowH > 4 ? 1 : 0)).attr("fill", (d) => COLOR[d.type]);
+    if (showNames) row.append("text").attr("class", "lbl").attr("x", 0).attr("y", rowH / 2 + 4).text((d) => d.name).each(function () { S.fitText(d3.select(this), nameW - 14); });
+    row.selectAll("rect.c").data((d) => items.map((it, i) => [d, it, i])).join("rect").attr("class", "c")
+      .attr("x", ([, , i]) => nameW + i * cellW).attr("width", cellW - 1).attr("height", rowH - (rowH > 4 ? 1 : 0))
+      .attr("fill", ([d, , i]) => { const v = d.items[i]; if (v == null) return "#101317"; return st.hm === "diff" ? divColor(v - (data.itemMedian[i] ?? v)) : seq(v); })
+      .on("pointermove", (ev, [d, it, i]) => S.showTip(ev, `<b>${d.name}</b>${it.label}: ${pct(d.items[i])}<br><span class="m">median ARP ${pct(data.itemMedian[i])}</span>`)).on("pointerleave", S.hideTip);
+  }
+
+  // ---- compare ----
+  function drawCompare() {
+    const ids = S.getCompare(), arps = ids.map((id) => data.byId.get(id)).filter(Boolean);
+    $("cpick").innerHTML = arps.map((d, i) => `<span class="p"><i style="background:${CMP_COLORS[i]}"></i>${d.name} <span class="note">${d.block}</span><button data-id="${d.id}" aria-label="Remove ${d.name}">×</button></span>`).join("");
+    $("cpick").querySelectorAll("button").forEach((b) => b.onclick = () => S.setCompare(S.getCompare().filter((x) => x !== b.dataset.id)));
+    if (!arps.length) { $("cbody").innerHTML = `<p class="note">Add ARPs with the search box above, by ticking them in the table, or with "Add to comparison" on a profile.</p>`; return; }
+    const rowsM = ["variety", "flnLean", "flnAllYes", "partial", "contradictions", "noPlan", "gAllYes", "allPresent", "factFlip", "enrSame", "teacherRepeat", "hindiShare", "grade1Share", "minutes", "visitsPerMonth", "targetShare", "schools", "visits"];
+    $("cbody").innerHTML = `<div class="grid2">
+      <div class="panel"><h3 class="sub" style="margin-top:0">Question by question</h3><p class="note">Dots show each ARP's share marked as seen; the line is the median ARP.</p><svg class="chart" id="cdots"></svg></div>
+      <div><div class="tablewrap"><table class="data"><thead><tr><th>Measure</th>${arps.map((d, i) => `<th class="n"><span class="chip" style="--c:${CMP_COLORS[i]}">${d.name.split(" ")[0]}</span></th>`).join("")}<th class="n">Median ARP</th></tr></thead>
+      <tbody><tr><td>Style</td>${arps.map((d) => `<td class="n">${T[d.type].label}</td>`).join("")}<td></td></tr>
+      ${rowsM.map((k) => `<tr title="${M[k].desc}"><td>${M[k].label}</td>${arps.map((d) => `<td class="n">${M[k].fmt(d[k])}</td>`).join("")}<td class="n">${M[k].fmt(d3.median(data.typed, (d) => d[k]))}</td></tr>`).join("")}</tbody></table></div>
+      <div style="margin-top:12px">${arps.map((d, i) => `<p><span class="chip" style="--c:${CMP_COLORS[i]}">${d.name}</span> ${d.badges.map((b) => `<span class="badge">${b.label}</span>`).join("") || '<span class="note">no markers</span>'}</p>`).join("")}</div></div></div>`;
+    S.itemDots(d3.select("#cdots"), arps, { colors: CMP_COLORS });
+  }
+  const sug = $("suggest");
+  $("cadd").addEventListener("input", () => {
+    const s = $("cadd").value.trim().toLowerCase();
+    if (s.length < 2) { sug.hidden = true; return; }
+    const hits = all.filter((d) => d.name.toLowerCase().includes(s) || d.block.toLowerCase().includes(s)).slice(0, 12);
+    sug.innerHTML = hits.map((d) => `<div data-id="${d.id}">${d.name} <span class="note">${d.block}, ${d.district}</span></div>`).join("") || '<div class="note">No match</div>';
+    sug.hidden = false;
+  });
+  sug.addEventListener("click", (e) => { const el = e.target.closest("[data-id]"); if (!el) return; const list = S.getCompare().filter((x) => x !== el.dataset.id); list.push(el.dataset.id); S.setCompare(list.slice(-4)); $("cadd").value = ""; sug.hidden = true; });
+  $("cclear").onclick = () => S.setCompare([]);
+  document.addEventListener("comparechange", () => refresh());
+
+  // ---- districts & blocks ----
+  sortable.forEach((m) => $("gm").append(new Option(m.label, m.id)));
+  $("gby").value = st.gby; $("gm").value = st.gm;
+  $("gby").onchange = () => { st.gby = $("gby").value; refresh(); }; $("gm").onchange = () => { st.gm = $("gm").value; refresh(); };
+  function drawGroups(rows) {
+    const key = st.gby === "block" ? (d) => `${d.block} (${d.district})` : (d) => d.district;
+    const mt = M[st.gm];
+    let groups = d3.groups(rows.filter((d) => d[st.gm] != null), key).map(([k, v]) => ({ k, v, med: d3.median(v, (d) => d[st.gm]) })).sort((a, b) => b.med - a.med);
+    const svg = d3.select("#gstrip"); svg.selectAll("*").remove();
+    const w = svg.node().getBoundingClientRect().width, labW = Math.min(220, w * 0.36), rowH = 26, m = { t: 30, b: 40 };
+    svg.attr("height", m.t + groups.length * rowH + m.b);
+    const ext = d3.extent(rows, (d) => d[st.gm]);
+    const x = d3.scaleLinear().domain([Math.min(mt.domain[0], ext[0] ?? 0), Math.max(mt.domain[1], ext[1] ?? 1)]).nice().range([labW, w - 14]);
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${m.t + groups.length * rowH + 4})`).call(d3.axisBottom(x).ticks(w < 500 ? 4 : 7).tickFormat((v) => mt.fmt(v)).tickSizeOuter(0));
+    S.fitText(svg.append("text").attr("class", "lbl-strong").attr("x", labW).attr("y", 16).text(`${mt.label}: each dot an ARP, the bar the median`), w - labW);
+    groups.forEach((gr, i) => {
+      const yy = m.t + i * rowH + rowH / 2;
+      S.fitText(svg.append("text").attr("class", "lbl").attr("x", 0).attr("y", yy + 4).text(`${gr.k} (${gr.v.length})`), labW - 10);
+      svg.append("line").attr("class", "gridline").attr("x1", labW).attr("x2", w - 14).attr("y1", yy).attr("y2", yy);
+      svg.append("g").selectAll("circle").data(gr.v).join("circle").attr("class", "dot").attr("r", 4).attr("cx", (d) => x(d[st.gm])).attr("cy", (d, j) => yy + ((j % 3) - 1) * 3)
+        .attr("fill", (d) => COLOR[d.type]).attr("opacity", 0.85).on("pointermove", (ev, d) => S.showTip(ev, S.arpTip(d, `<br>${mt.short}: ${mt.fmt(d[st.gm])}`))).on("pointerleave", S.hideTip).on("click", (ev, d) => S.openProfile(d));
+      svg.append("line").attr("x1", x(gr.med)).attr("x2", x(gr.med)).attr("y1", yy - 9).attr("y2", yy + 9).attr("stroke", "var(--text)").attr("stroke-width", 3);
+    });
+    const cols = ["variety", "flnLean", "partial", "contradictions", "noPlan", "allPresent", "factFlip", "teacherRepeat", "visitsPerMonth"];
+    $("gtbl").innerHTML = `<thead><tr><th>${st.gby === "block" ? "Block" : "District"}</th><th class="n">ARPs</th><th>Style mix</th>${cols.map((c) => `<th class="n" title="${M[c].desc}">${M[c].short}</th>`).join("")}</tr></thead><tbody>` +
+      groups.slice().sort((a, b) => a.k.localeCompare(b.k)).map((gr) => {
+        const mix = STYLE_ORDER.map((t) => [t, gr.v.filter((d) => d.type === t).length / gr.v.length]);
+        return `<tr data-k="${gr.k}"><td>${gr.k}</td><td class="n">${gr.v.length}</td><td><div class="stylebar" title="${mix.map(([t, s]) => `${T[t].label} ${pct(s)}`).join(", ")}">${mix.map(([t, s]) => `<i style="width:${s * 100}%;background:${COLOR[t]}"></i>`).join("")}</div></td>${cols.map((c) => `<td class="n">${M[c].fmt(d3.median(gr.v, (d) => d[c]))}</td>`).join("")}</tr>`;
+      }).join("") + "</tbody>";
+    $("gtbl").querySelectorAll("tbody tr").forEach((tr) => tr.onclick = () => {
+      if (st.gby === "district") { st.d = tr.dataset.k; $("fd").value = st.d; fillBlocks(); } else { const m = tr.dataset.k.match(/^(.*) \((.*)\)$/); st.d = m[2]; $("fd").value = st.d; fillBlocks(); st.b = m[1]; $("fb").value = st.b; }
+      setView("table");
+    });
+  }
+
+  function refresh() {
+    const rows = filtered();
+    $("count").textContent = `${rows.length} ARPs match` + (st.view === "items" && rows.length > 150 ? " · narrow the filters to 150 or fewer to see names" : "");
+    save();
+    if (st.view === "table") drawTable(rows);
+    if (st.view === "scatter") drawScatter(rows);
+    if (st.view === "items") drawHeat(rows);
+    if (st.view === "compare") drawCompare();
+    if (st.view === "groups") drawGroups(rows);
+  }
+  addEventListener("resize", S.debounce(refresh, 200));
+  setView(st.view);
+  S.wireProfile();
+})();
+</script>
+</body>
+</html>
