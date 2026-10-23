@@ -79,12 +79,6 @@
         <p>Hover over or tap a dot to see the ARP's name.</p>
       </div></div>
 
-      <div class="step" data-layout="wall"><div class="card">
-        <h2>Twelve FLN answers for <mark>every ARP</mark></h2>
-        <p>Each row is one ARP and each column one of the 12 questions on the Grade 1–3 FLN form. The darker the red, the more often the ARP marked that practice as seen.</p>
-        <p>Rows are sorted by how often the ARP's answers change between classrooms. In the top rows, the ARP gave the top answer to nearly every question on nearly every form.</p>
-      </div></div>
-
       <div class="step" data-layout="variety"><div class="card">
         <h2>Answer variety</h2>
         <p>For each question, answer variety measures how often an ARP's answer changes from one classroom to the next: 0 if it never changes, 1 if it splits evenly. An ARP's score is the average over the 12 questions.</p>
@@ -98,6 +92,12 @@
           <li><span class="chip" style="--c:var(--mixed)">Mixed</span> <span data-bind="n-mixed"></span>, variety from 0.35 to 0.65.</li>
           <li><span class="chip" style="--c:var(--varied)">Varied</span> <span data-bind="n-varied"></span>, variety of 0.65 or more. Their answers change from classroom to classroom, and <span data-bind="v-allyes"></span> of their FLN forms give the top answer throughout.</li>
         </ul>
+      </div></div>
+
+      <div class="step" data-layout="questions"><div class="card">
+        <h2>Question by question, <mark>by style</mark></h2>
+        <p>Each row is one question on the Grade 1–3 FLN form. Each dot is the average share of forms on which ARPs of that style marked the practice as seen. Questions are sorted by the gap between Uniform and Varied ARPs, widest first.</p>
+        <p>Uniform ARPs mark every practice as seen on at least <span data-bind="q-umin"></span> of their forms. The gap is widest on "<span data-bind="q-top"></span>" (<span data-bind="q-topu"></span> against <span data-bind="q-topv"></span>) and narrowest on "<span data-bind="q-low"></span>".</p>
       </div></div>
 
       <div class="step" data-layout="partial"><div class="card">
@@ -191,6 +191,11 @@
   const mean = (t, k) => d3.mean(byT.get(t) || [], (d) => d[k]);
   const fi = (id) => meta.items.findIndex((i) => i.id === id);
 
+  // Average share marked as seen, per FLN question and style; sorted by the Uniform-Varied gap.
+  const qRows = meta.items.map((it, i) => ({ it, i })).filter(({ it }) => it.group === "fln" && it.id !== "fluency")
+    .map(({ it, i }) => ({ label: it.label, v: Object.fromEntries(STYLE_ORDER.map((t) => [t, d3.mean(byT.get(t) || [], (d) => d.items[i])])) }))
+    .sort((a, b) => (b.v.uniform - b.v.varied) - (a.v.uniform - a.v.varied));
+
   // ---- text ----
   const dshare = d3.rollups(typed, (v) => d3.mean(v, (d) => d.type === "uniform"), (d) => d.district).sort((a, b) => b[1] - a[1]);
   const q = (k, p) => d3.quantile(typed.map((d) => d[k]).filter((x) => x != null).sort(d3.ascending), p);
@@ -209,6 +214,8 @@
     relAllSak: data.spot.reliability.spotAllSaksham.toFixed(2),
     periodMean: pct(d3.mean(typed, (d) => d.firstPeriod)), periodP10: pct(q("firstPeriod", 0.1)), periodP90: pct(q("firstPeriod", 0.9)),
     relPeriod: meta.reliability.firstPeriod.toFixed(2), headP10: pct(q("headTeacher", 0.1)), headP90: pct(q("headTeacher", 0.9)),
+    "q-umin": pct(d3.min(qRows, (r) => r.v.uniform)), "q-top": qRows[0].label, "q-topu": pct(qRows[0].v.uniform), "q-topv": pct(qRows[0].v.varied),
+    "q-low": qRows[qRows.length - 1].label,
     dTop: dshare.slice(0, 2).map((d) => `${d[0]} (${pct(d[1])} Uniform)`).join(" and "),
     dBottom: dshare.slice(-2).reverse().map((d) => `${d[0]} (${pct(d[1])})`).join(" and "),
   };
@@ -244,17 +251,6 @@
     d3.forceSimulation(sim).force("x", d3.forceX((s) => s.tx).strength(1)).force("y", d3.forceY(yc).strength(0.05)).force("c", d3.forceCollide(R + 0.6)).stop().tick(220);
     return Object.fromEntries(sim.map((s) => [s.id, [s.x, Math.max(M.t, Math.min(H - M.b, s.y))]]));
   }
-  // Room above the wall for the full, slanted question labels; columns stop short of the edge so the last labels fit.
-  const wallItems = () => meta.items.filter((it) => it.group === "fln" && it.id !== "fluency");
-  let wallLab;
-  const wallLabelW = () => (wallLab ??= S.measureMax(svg, wallItems().map((it) => it.label)));
-  const wallAngle = () => (narrow() ? 78 : 60) * Math.PI / 180;  // steeper on phones, where columns are narrow
-  const wallTop = () => Math.ceil(wallLabelW() * Math.sin(wallAngle())) + 24;
-  const wallRight = () => {
-    const its = wallItems(), cell = (W - M.l - M.r) / its.length;
-    const pad = d3.max(its, (it, k) => S.measureMax(svg, [it.label]) * Math.cos(wallAngle()) - (its.length - 1 - k) * cell);
-    return W - M.r - Math.max(0, pad);
-  };
   const sortedByVariety = nodes.slice().sort((a, b) => a.d.variety - b.d.variety);
   function layout(name) {
     if (layouts[name]) return layouts[name];
@@ -263,10 +259,8 @@
       const cx = W / 2, cy = H / 2, k = Math.min(W, H) / Math.sqrt(nodes.length) / 2.2;
       const order = name === "final" ? nodes.slice().sort((a, b) => STYLE_ORDER.indexOf(a.d.type) - STYLE_ORDER.indexOf(b.d.type)) : nodes;
       L = Object.fromEntries(order.map((n, i) => { const r = k * Math.sqrt(i + 0.5), a = i * 2.39996; return [n.id, [cx + r * Math.cos(a), cy + r * Math.sin(a)]]; }));
-    } else if (name === "wall") {
-      // dots line up along the left edge of the wall, one per row
-      const y = d3.scaleBand().domain(sortedByVariety.map((n) => n.id)).range([wallTop(), H - M.b]);
-      L = Object.fromEntries(nodes.map((n) => [n.id, [M.l - 10, y(n.id) + y.bandwidth() / 2]])); L._r = Math.max(0.6, Math.min(R, y.bandwidth() / 2));
+    } else if (name === "questions") {
+      L = Object.fromEntries(nodes.map((n) => [n.id, [W / 2, H / 2]])); L._hide = () => true;
     } else if (name === "variety") {
       const x = x01(); L = swarm((d) => x(d.variety), (H - M.b + M.t) / 2);
     } else if (name === "noplan") {
@@ -335,28 +329,35 @@
   function decorate(name, L) {
     [gGrid, gAx, gOver, gLbl].forEach((g) => g.selectAll("*").remove());
     const th = meta.thresholds;
-    if (name === "wall") {
-      const items = meta.items.map((it, i) => [it, i]).filter(([it]) => it.group === "fln" && it.id !== "fluency");
-      const y = d3.scaleBand().domain(sortedByVariety.map((n) => n.id)).range([wallTop(), H - M.b]);
-      const x = d3.scaleBand().domain(items.map(([it]) => it.id)).range([M.l, wallRight()]).padding(0.04);
-      const color = S.PAL.seq;
-      const rows = gOver.selectAll("g").data(sortedByVariety).join("g").attr("transform", (n) => `translate(0,${y(n.id)})`).attr("opacity", 0);
-      rows.selectAll("rect").data((n) => items.map(([it, i]) => [n.d, it, n.d.items[i]])).join("rect")
-        .attr("x", ([, it]) => x(it.id)).attr("width", x.bandwidth()).attr("height", Math.max(1, y.bandwidth())).attr("fill", ([, , v]) => (v == null ? S.PAL.nullCell : color(v)))
-        .on("pointermove", (ev, [d, it, v]) => S.showTip(ev, `<b>${d.name}</b>${it.label}: ${pct(v)}<br><span class="m">variety ${d.variety.toFixed(2)}</span>`)).on("pointerleave", S.hideTip)
-        .on("click", (ev, [d]) => S.openProfile(d));
-      rows.transition().delay((n, i) => (reduce ? 0 : 300 + (sortedByVariety.length - i) * 2)).duration(reduce ? 0 : 300).attr("opacity", 1);
-      const lab = gLbl.append("g");
-      // Column labels run up and to the right; each is cut to fit the space left to the edge.
-      items.forEach(([it], i) => {
-        const x0 = x(it.id) + x.bandwidth() / 2;
-        lab.append("text").attr("class", "lbl").attr("transform", `translate(${x0 - 3},${wallTop() - 6}) rotate(${-wallAngle() * 180 / Math.PI})`).text(it.label);
+    if (name === "questions") {
+      // Labels wrap to the left column; each row gets one dot per style, joined by a bar.
+      const labW = Math.min(narrow() ? W * 0.42 : W * 0.38, 260), lineH = 14;
+      const lo = Math.floor(d3.min(qRows, (r) => d3.min(STYLE_ORDER, (t) => r.v[t])) * 10) / 10;
+      const x = d3.scaleLinear().domain([lo, 1]).range([labW + (narrow() ? 12 : 46), W - M.r - 34]);  // room for the Varied value labels
+      const tmp = qRows.map((r) => { const t = gLbl.append("text").attr("class", "lbl").attr("x", 0).text(r.label); return [t, S.wrap(t, labW - 6, lineH)]; });
+      const need = d3.sum(tmp, ([, n]) => n * lineH + 8), avail = H - M.t - 50;
+      const rowH = (n) => Math.max(n * lineH + 8, (avail - need) / qRows.length + n * lineH + 8);
+      let y = M.t + 6;
+      x.ticks(narrow() ? 3 : 5).forEach((t) => gGrid.append("line").attr("class", "gridline").attr("x1", x(t)).attr("x2", x(t)).attr("y1", M.t).attr("y2", H - 44));
+      gAx.append("g").attr("class", "axis").attr("transform", `translate(0,${H - 42})`).call(d3.axisBottom(x).ticks(narrow() ? 3 : 5).tickFormat(d3.format(".0%")).tickSizeOuter(0));
+      S.fitText(gAx.append("text").attr("class", "lbl").attr("x", (labW + W) / 2).attr("y", H - 8).attr("text-anchor", "middle").text("Average share of forms marking the practice as seen"), W - labW);
+      qRows.forEach((r, k) => {
+        const [t, n] = tmp[k], h = rowH(n), yc = y + h / 2;
+        t.attr("y", yc + 4 - (n - 1) * lineH / 2);
+        const vals = STYLE_ORDER.map((st) => [st, r.v[st]]).filter(([, v]) => v != null);
+        const lo_ = d3.min(vals, (v) => v[1]), hi = d3.max(vals, (v) => v[1]);
+        gOver.append("line").attr("x1", x(hi)).attr("x2", x(hi)).attr("y1", yc).attr("y2", yc).attr("stroke", "var(--line)").attr("stroke-width", 4).attr("stroke-linecap", "round")
+          .transition().delay(reduce ? 0 : 300 + k * 60).duration(reduce ? 0 : 600).attr("x1", x(lo_));
+        vals.forEach(([st, v]) => gOver.append("circle").attr("cx", x(hi)).attr("cy", yc).attr("r", narrow() ? 5 : 6.5).attr("fill", COLOR[st]).attr("stroke", "var(--surface)").attr("stroke-width", 1.5)
+          .on("pointermove", (ev) => S.showTip(ev, `<b>${r.label}</b>${T[st].label} ARPs: ${pct(v)} of forms`)).on("pointerleave", S.hideTip)
+          .transition().delay(reduce ? 0 : 300 + k * 60).duration(reduce ? 0 : 600).attr("cx", x(v)));
+        gOver.append("text").attr("class", "lbl").attr("x", x(hi) + 10).attr("y", yc + 4).text(pct(r.v.uniform));
+        if (!narrow()) gOver.append("text").attr("class", "lbl").attr("x", x(lo_) - 10).attr("y", yc + 4).attr("text-anchor", "end").text(pct(r.v.varied))
+          .attr("opacity", 0).transition().delay(reduce ? 0 : 900 + k * 60).attr("opacity", 1);
+        y += h;
       });
-      gLbl.append("text").attr("class", "lbl-strong").attr("x", M.l).attr("y", H - M.b + 18).text("Top: least varied ARPs · bottom: most varied");
-      gLbl.attr("opacity", 0).transition().delay(reduce ? 0 : 600).attr("opacity", 1);
-      return;
-    }
-    if (name === "variety") {
+      legend("top");
+    } else if (name === "variety") {
       const x = x01(); axisX(x, "Answer variety (0 = the same answers every time)", d3.format(".1f"));
       vline(x, th.lowVariety, "0.35"); vline(x, th.highVariety, "0.65");
     } else if (name === "noplan") {
