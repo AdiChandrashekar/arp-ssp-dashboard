@@ -145,7 +145,9 @@ header.top h1 { font-size: clamp(30px, 5vw, 56px); margin: 8px 0 10px; }
     });
     const cx = x(change.m) - x.step() * x.padding() / 2 - 2;
     svg.append("line").attr("class", "ref").attr("x1", cx).attr("x2", cx).attr("y1", m.t - 18).attr("y2", h - m.b);
-    svg.append("text").attr("class", "lbl-strong").attr("x", cx + 6).attr("y", m.t - 8).text("Madhyam level added");
+    // label runs left of the line when there isn't room to its right
+    const roomRight = w - cx > 150;
+    svg.append("text").attr("class", "lbl-strong").attr("x", cx + (roomRight ? 6 : -6)).attr("y", m.t - 8).attr("text-anchor", roomRight ? "start" : "end").text("Madhyam level added");
   }
 
   // ---- district x month ----
@@ -154,11 +156,15 @@ header.top h1 { font-size: clamp(30px, 5vw, 56px); margin: 8px 0 10px; }
     const dists = Object.keys(sp.byDistrict).sort(), ms = months.map((r) => r.m);
     const wrapW = document.querySelector("#distHeat").parentNode.getBoundingClientRect().width - 14;
     const labW = 112, cellW = Math.max(38, (wrapW - labW) / ms.length), cellH = 30;
-    svg.attr("width", labW + cellW * ms.length).attr("height", 24 + dists.length * cellH);
+    svg.attr("width", labW + cellW * ms.length).attr("height", 34 + dists.length * cellH);
     const col = d3.scaleSequential(d3.interpolateRgbBasis(["#F1F7F5", "#9ED1C6", "#2E9A88", "#0B5B52"])).domain([0.1, 0.8]).clamp(true);
-    ms.forEach((mo, j) => svg.append("text").attr("class", "lbl").attr("x", labW + j * cellW + cellW / 2).attr("y", 14).attr("text-anchor", "middle").text(mShort(mo)));
+    ms.forEach((mo, j) => {
+      const t = svg.append("text").attr("class", "lbl").attr("x", labW + j * cellW + cellW / 2).attr("y", 12).attr("text-anchor", "middle");
+      t.append("tspan").attr("x", labW + j * cellW + cellW / 2).text(d3.timeFormat("%b")(d3.timeParse("%Y-%m")(mo)));
+      t.append("tspan").attr("x", labW + j * cellW + cellW / 2).attr("dy", 13).text(mo.slice(0, 4));
+    });
     dists.forEach((dn, i) => {
-      const yy = 24 + i * cellH;
+      const yy = 34 + i * cellH;
       svg.append("text").attr("class", "lbl-strong").attr("x", 4).attr("y", yy + cellH / 2 + 4).text(dn);
       ms.forEach((mo, j) => {
         const v = sp.byDistrict[dn][mo]; if (v == null) return;
@@ -179,7 +185,7 @@ header.top h1 { font-size: clamp(30px, 5vw, 56px); margin: 8px 0 10px; }
   }
   function drawClass() {
     const svg = d3.select("#byClass"); svg.selectAll("*").remove();
-    const w = svg.node().getBoundingClientRect().width, rowH = 34, labW = 120, m = { t: 6, b: 30 };
+    const w = svg.node().getBoundingClientRect().width, rowH = 34, labW = 120, m = { t: 22, b: 30 };
     svg.attr("height", m.t + cls.length * rowH + m.b);
     const x = d3.scaleLinear().domain([0, 1]).range([labW, w - 8]);
     svg.append("g").attr("class", "axis").attr("transform", `translate(0,${m.t + cls.length * rowH + 4})`).call(d3.axisBottom(x).ticks(5).tickFormat(d3.format(".0%")).tickSizeOuter(0));
@@ -196,7 +202,7 @@ header.top h1 { font-size: clamp(30px, 5vw, 56px); margin: 8px 0 10px; }
         x0 += v;
       });
     });
-    svg.append("text").attr("class", "lbl").attr("x", 60).attr("y", m.t + cls.length * rowH + 24).text("children");
+    svg.append("text").attr("class", "lbl").attr("x", 60).attr("y", 12).text("children");
   }
 
   // ---- ARPs ----
@@ -209,7 +215,8 @@ header.top h1 { font-size: clamp(30px, 5vw, 56px); margin: 8px 0 10px; }
     svg.attr("height", m.t + rows * rowH + m.b);
     const x = d3.scaleLinear().domain(domain).range([m.l, w - 10]).clamp(true);
     svg.append("g").attr("class", "axis").attr("transform", `translate(0,${m.t + rows * rowH + 4})`).call(d3.axisBottom(x).ticks(w < 500 ? 4 : 6).tickFormat(fmt).tickSizeOuter(0));
-    S.fitText(svg.append("text").attr("class", "lbl").attr("x", (m.l + w) / 2).attr("y", m.t + rows * rowH + 46).attr("text-anchor", "middle").text(axisLabel), w - 20);
+    const n = S.wrap(svg.append("text").attr("class", "lbl").attr("x", (m.l + w) / 2).attr("y", m.t + rows * rowH + 46).attr("text-anchor", "middle").text(axisLabel), w - m.l - 10, 14);
+    svg.attr("height", m.t + rows * rowH + m.b + (n - 1) * 14);
     STYLE_ORDER.forEach((t, i) => {
       const yc = m.t + i * rowH + rowH / 2, pts_ = (byT.get(t) || []).filter((d) => d[key] != null).map((d) => ({ d, x: x(d[key]), y: yc }));
       svg.append("text").attr("class", "lbl-strong").attr("x", 0).attr("y", yc + 4).text(T[t].label);

@@ -124,7 +124,7 @@ header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
     });
     svg.attr("height", yy + m.b);
     x.ticks(5).forEach((t) => grid.append("line").attr("class", "gridline").attr("x1", x(t)).attr("x2", x(t)).attr("y1", m.t).attr("y2", yy));
-    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${yy + 4})`).call(d3.axisBottom(x).ticks(w < 500 ? 4 : 6).tickFormat(d3.format(".0%")).tickSizeOuter(0));
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${yy + 4})`).call(d3.axisBottom(x).ticks(w < 500 ? 3 : 6).tickFormat(d3.format(".0%")).tickSizeOuter(0));
   }
 
   // 1. by grade
@@ -220,11 +220,12 @@ header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
     rows.sort(k === "name" ? (a, b) => a.name.localeCompare(b.name) : (a, b) => (a[k] ?? 9) - (b[k] ?? 9));
     const wrapW = document.querySelector(".heatwrap").getBoundingClientRect().width - 2;
     const longest = S.measureMax(svg, items.map((it) => it.label));
-    const rowH = rows.length > 150 ? 4 : 14, showNames = rowH > 4, nameW = showNames ? Math.min(190, wrapW * 0.32) : 14, headH = Math.ceil(longest * 0.87) + 16;
-    const cellW = Math.max(18, (wrapW - nameW - 8 - longest * 0.5) / items.length);
-    svg.attr("width", nameW + cellW * items.length + 8 + longest * 0.5).attr("height", headH + rows.length * rowH + 8);
+    const ang = (wrapW < 560 ? 78 : 60) * Math.PI / 180, sin = Math.sin(ang), cos = Math.cos(ang);  // steeper slant on phones
+    const rowH = rows.length > 150 ? 4 : 14, showNames = rowH > 4, nameW = showNames ? Math.min(190, wrapW * 0.32) : 14, headH = Math.ceil(longest * sin) + 16;
+    const cellW = Math.max(18, (wrapW - nameW - 8 - longest * cos) / items.length);
+    svg.attr("width", nameW + cellW * items.length + 8 + longest * cos).attr("height", headH + rows.length * rowH + 8);
     const seq = S.PAL.seq;
-    items.forEach((it, j) => svg.append("text").attr("class", "lbl").attr("transform", `translate(${nameW + j * cellW + cellW / 2 + 3},${headH - 6}) rotate(-60)`).text(it.label));
+    items.forEach((it, j) => svg.append("text").attr("class", "lbl").attr("transform", `translate(${nameW + j * cellW + cellW / 2 + 3},${headH - 6}) rotate(${-ang * 180 / Math.PI})`).text(it.label));
     const g = svg.append("g").attr("transform", `translate(0,${headH})`);
     const row = g.selectAll("g").data(rows).join("g").attr("transform", (d, i) => `translate(0,${i * rowH})`).style("cursor", "pointer").on("click", (ev, d) => S.openProfile(d));
     row.append("rect").attr("x", nameW - 8).attr("width", 5).attr("height", rowH - (showNames ? 1 : 0)).attr("fill", (d) => COLOR[d.type]);

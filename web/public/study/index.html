@@ -38,14 +38,15 @@
 .method h3 { font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--text); margin: 0 0 4px; break-after: avoid; }
 .method p { margin: 0 0 18px; break-inside: avoid; }
 @media (max-width: 860px) {
+  /* Phones: each step shows its own chart under its text, so nothing hides behind a sticky graphic. */
   .scrolly { display: block; }
-  .graphic { top: 46px; height: 56svh; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); box-shadow: 0 8px 18px rgba(251,248,243,.9); }
-  .graphic svg { height: 54svh; }
-  .steps { padding: 6svh 0 30svh; position: relative; z-index: 1; }
-  .step { min-height: 72svh; align-items: flex-start; }
-  .card { padding: 16px; }
-  .card h2 { font-size: 21px; }
-  .card p, .card li { font-size: 15px; }
+  .graphic { display: none; }
+  .steps { padding: 4svh 0 6svh; }
+  .step { min-height: 0; display: block; margin: 0 0 56px; }
+  .card { padding: 18px; opacity: 1; transform: none; box-shadow: 0 2px 0 var(--line); }
+  .card h2 { font-size: 22px; }
+  .card p, .card li { font-size: 15.5px; }
+  svg.stepviz { display: block; width: 100%; overflow: visible; margin-top: 14px; }
 }
 </style>
 </head>
@@ -230,12 +231,18 @@
   heroCanvas();
 
   // ---- graphic ----
-  const svg = d3.select("#viz");
-  const gGrid = svg.append("g"), gAx = svg.append("g"), gOver = svg.append("g"), gDots = svg.append("g"), gLbl = svg.append("g");
+  // On desktop one sticky svg morphs between layouts; on phones each step gets its own svg.
+  // The drawing functions below read these, so `bind` points them at whichever svg is being drawn.
+  const PHONE = matchMedia("(max-width: 860px)").matches;
+  let svg, gGrid, gAx, gOver, gDots, gLbl, dots;
   let W, H, R, M, layouts = {}, current = "cloud";
   const nodes = typed.map((d) => ({ d, id: d.id }));
-  const dots = gDots.selectAll("circle").data(nodes, (n) => n.id).join("circle").attr("class", "dot").attr("r", 3).attr("fill", "var(--text-2)")
-    .on("pointermove", (ev, n) => S.showTip(ev, S.arpTip(n.d))).on("pointerleave", S.hideTip).on("click", (ev, n) => S.openProfile(n.d));
+  function bind(target) {
+    svg = target; svg.selectAll("*").remove();
+    [gGrid, gAx, gOver, gDots, gLbl] = [0, 1, 2, 3, 4].map(() => svg.append("g"));
+    dots = gDots.selectAll("circle").data(nodes, (n) => n.id).join("circle").attr("class", "dot").attr("r", 3).attr("fill", "var(--text-2)")
+      .on("pointermove", (ev, n) => S.showTip(ev, S.arpTip(n.d))).on("pointerleave", S.hideTip).on("click", (ev, n) => S.openProfile(n.d));
+  }
 
   function size() {
     const r = svg.node().getBoundingClientRect();
@@ -256,7 +263,8 @@
     if (layouts[name]) return layouts[name];
     let L;
     if (name === "cloud" || name === "final") {
-      const cx = W / 2, cy = H / 2, k = Math.min(W, H) / Math.sqrt(nodes.length) / 2.2;
+      // the final view leaves room at the top for its legend
+      const top = name === "final" ? 24 : 0, cx = W / 2, cy = (H + top) / 2, k = Math.min(W, H - top) / Math.sqrt(nodes.length) / 2.2;
       const order = name === "final" ? nodes.slice().sort((a, b) => STYLE_ORDER.indexOf(a.d.type) - STYLE_ORDER.indexOf(b.d.type)) : nodes;
       L = Object.fromEntries(order.map((n, i) => { const r = k * Math.sqrt(i + 0.5), a = i * 2.39996; return [n.id, [cx + r * Math.cos(a), cy + r * Math.sin(a)]]; }));
     } else if (name === "questions") {
@@ -273,9 +281,9 @@
       const x = x01(), y = y01(0.7); L = Object.fromEntries(nodes.map((n) => [n.id, [x(n.d.variety), y(n.d.spotAllSaksham ?? 0)]]));
       L._hide = (n) => n.d.spotAllSaksham == null;
     } else if (name === "styles") {
-      const cols = narrow() ? 1 : 3, rows = narrow() ? 3 : 1;
+      const cols = W < 300 ? 1 : 3, rows = W < 300 ? 3 : 1;
       const cx = (i) => M.l + ((i % cols) + 0.5) * (W - M.l - M.r) / cols, cy = (i) => M.t + 30 + (Math.floor(i / cols) + 0.5) * (H - M.t - M.b - 30) / rows;
-      const rr = narrow() ? Math.min(R, 2.1) : R;
+      const rr = narrow() ? Math.min(R, 2.2) : R;
       const sim = nodes.map((n) => { const i = STYLE_ORDER.indexOf(n.d.type); return { id: n.id, i, x: cx(i) + Math.random() * 4, y: cy(i) + Math.random() * 4 }; });
       d3.forceSimulation(sim).force("x", d3.forceX((s) => cx(s.i)).strength(0.15)).force("y", d3.forceY((s) => cy(s.i)).strength(0.15)).force("c", d3.forceCollide(rr + 0.6)).stop().tick(260);
       L = Object.fromEntries(sim.map((s) => [s.id, [s.x, s.y]])); L._r = rr;
@@ -288,7 +296,7 @@
       const x = x01(), y = y01(1); L = Object.fromEntries(nodes.map((n) => [n.id, [x(n.d.variety), y(n.d.contradictions ?? 0)]]));
       L._hide = (n) => n.d.contradictions == null;
     } else if (name === "district") {
-      const labW = narrow() ? 92 : 112, s = 2 * R + 2, cols = Math.max(10, Math.floor((W - M.r - labW) / s));
+      const labW = narrow() ? 104 : 112, s = 2 * R + 2, cols = Math.max(10, Math.floor((W - M.r - labW) / s));
       const ds = d3.groups(nodes, (n) => n.d.district).sort((a, b) => d3.mean(b[1], (n) => n.d.type === "uniform") - d3.mean(a[1], (n) => n.d.type === "uniform"));
       const rowsNeeded = ds.map(([, v]) => Math.ceil(v.length / cols));
       const unit = Math.min(s, (H - M.t - 40 - 14 * ds.length) / d3.sum(rowsNeeded));
@@ -340,7 +348,7 @@
       let y = M.t + 6;
       x.ticks(narrow() ? 3 : 5).forEach((t) => gGrid.append("line").attr("class", "gridline").attr("x1", x(t)).attr("x2", x(t)).attr("y1", M.t).attr("y2", H - 44));
       gAx.append("g").attr("class", "axis").attr("transform", `translate(0,${H - 42})`).call(d3.axisBottom(x).ticks(narrow() ? 3 : 5).tickFormat(d3.format(".0%")).tickSizeOuter(0));
-      S.fitText(gAx.append("text").attr("class", "lbl").attr("x", (labW + W) / 2).attr("y", H - 8).attr("text-anchor", "middle").text("Average share of forms marking the practice as seen"), W - labW);
+      gAx.append("text").attr("class", "lbl").attr("x", (labW + W) / 2).attr("y", H - 8).attr("text-anchor", "middle").text(narrow() ? "Share of forms marked as seen" : "Average share of forms marking the practice as seen");
       qRows.forEach((r, k) => {
         const [t, n] = tmp[k], h = rowH(n), yc = y + h / 2;
         t.attr("y", yc + 4 - (n - 1) * lineH / 2);
@@ -402,15 +410,40 @@
       .attr("opacity", (n) => (L._hide && L._hide(n) ? 0 : 1));
     decorate(name, L);
   }
-  size(); render("cloud", true);
-  addEventListener("resize", S.debounce(() => { size(); render(current, true); }, 200));
   const steps = [...document.querySelectorAll(".step")];
-  const io = new IntersectionObserver((es) => es.forEach((e) => {
-    if (!e.isIntersecting) return;
-    steps.forEach((s) => s.classList.toggle("active", s === e.target));
-    if (e.target.dataset.layout !== current) render(e.target.dataset.layout);
-  }), { rootMargin: matchMedia("(max-width: 860px)").matches ? "-62% 0px -25% 0px" : "-45% 0px -45% 0px" });
-  steps.forEach((s) => io.observe(s));
+  if (!PHONE) {
+    bind(d3.select("#viz"));
+    size(); render("cloud", true);
+    addEventListener("resize", S.debounce(() => { size(); render(current, true); }, 200));
+    const io = new IntersectionObserver((es) => es.forEach((e) => {
+      if (!e.isIntersecting) return;
+      steps.forEach((s) => s.classList.toggle("active", s === e.target));
+      if (e.target.dataset.layout !== current) render(e.target.dataset.layout);
+    }), { rootMargin: "-45% 0px -45% 0px" });
+    steps.forEach((s) => io.observe(s));
+  } else {
+    // Each step's chart is drawn when it nears the screen; its dots then grow into place.
+    const tall = { questions: 600, district: 540, styles: 300 };
+    const drawStep = (step) => {
+      const name = step.dataset.layout, w = step.getBoundingClientRect().width;
+      const h = tall[name] || Math.round(Math.min(460, Math.max(320, w * (["cloud", "final"].includes(name) ? 1 : 1.05))));
+      let el = d3.select(step).select("svg.stepviz");
+      if (el.empty()) el = d3.select(step).append("svg").attr("class", "stepviz");
+      el.style("height", h + "px");
+      bind(el); size();
+      const L = layout(name), r = L._r || R;
+      dots.attr("cx", (n) => L[n.id][0]).attr("cy", (n) => L[n.id][1]).attr("r", 0)
+        .attr("fill", (n) => (name === "cloud" ? "var(--text-2)" : COLOR[n.d.type])).attr("opacity", (n) => (L._hide && L._hide(n) ? 0 : 1))
+        .transition().delay((n, i) => (reduce ? 0 : (i % 60) * 8)).duration(reduce ? 0 : 500).attr("r", r);
+      decorate(name, L);
+      step.dataset.w = w;
+    };
+    const io = new IntersectionObserver((es) => es.forEach((e) => {
+      if (e.isIntersecting && !e.target.dataset.w) drawStep(e.target);
+    }), { rootMargin: "0px 0px 15% 0px" });
+    steps.forEach((s) => io.observe(s));
+    addEventListener("resize", S.debounce(() => steps.forEach((s) => { if (s.dataset.w && Math.abs(s.getBoundingClientRect().width - s.dataset.w) > 20) drawStep(s); }), 250));
+  }
   S.wireProfile();
 
   function heroCanvas() {
