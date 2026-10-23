@@ -146,32 +146,54 @@ window.S = (function () {
   }
 
   // Item dot plot: one row per item, a dot per ARP, a tick for the median ARP.
+  // Question labels wrap onto extra lines and the row grows to fit, so none is cut short.
   function itemDots(svg, arps, opts = {}) {
     svg.selectAll("*").remove();
     const items = DATA.meta.items, groups = { fln: "Grade 1–3 FLN", g: "Grade 4–8", school: "School" };
-    const w = svg.node().getBoundingClientRect().width || 600, rowH = 19, gapH = 26;
-    const labW = Math.min(w * 0.48, 290), m = { l: labW, r: 14 };
+    const w = svg.node().getBoundingClientRect().width || 600, gapH = 22, lineH = 15;
+    const labW = Math.min(w * 0.46, 300), m = { l: labW, r: 14 };
     const x = d3.scaleLinear().domain([0, 1]).range([m.l, w - m.r]);
-    let y = 22; const pos = [];
-    let lastG = null;
-    items.forEach((it, i) => { if (it.group !== lastG) { y += lastG ? gapH : 0; pos.push({ head: groups[it.group], y }); y += 18; lastG = it.group; } pos.push({ i, y }); y += rowH; });
-    svg.attr("height", y + 26);
-    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${y + 4})`).call(d3.axisBottom(x).ticks(5).tickFormat(d3.format(".0%")).tickSizeOuter(0));
-    x.ticks(5).forEach((t) => svg.append("line").attr("class", "gridline").attr("x1", x(t)).attr("x2", x(t)).attr("y1", 14).attr("y2", y));
-    pos.forEach((p) => {
-      if (p.head) { svg.append("text").attr("class", "lbl-strong").attr("x", 0).attr("y", p.y + 4).text(p.head); return; }
-      const it = items[p.i];
-      const lab = svg.append("text").attr("class", "lbl").attr("x", 0).attr("y", p.y + 4).text(it.label);
-      fitText(lab, labW - 8);
-      const med = DATA.itemMedian[p.i];
-      if (med != null) svg.append("line").attr("x1", x(med)).attr("x2", x(med)).attr("y1", p.y - 6).attr("y2", p.y + 6).attr("stroke", "var(--text)").attr("stroke-width", 2).attr("opacity", 0.55);
+    const grid = svg.append("g"), body = svg.append("g");
+    let y = 6, lastG = null;
+    items.forEach((it, i) => {
+      if (it.group !== lastG) { y += lastG ? gapH : 0; body.append("text").attr("class", "lbl-strong").attr("x", 0).attr("y", y + 12).text(groups[it.group]); y += 22; lastG = it.group; }
+      const lab = body.append("text").attr("class", "lbl").attr("x", 0).text(it.label);
+      const n = wrap(lab, labW - 10, lineH);
+      const rowH = Math.max(20, n * lineH + 5), yc = y + rowH / 2;
+      lab.attr("y", yc + 4 - (n - 1) * lineH / 2);
+      const med = DATA.itemMedian[i];
+      if (med != null) body.append("line").attr("x1", x(med)).attr("x2", x(med)).attr("y1", yc - 6).attr("y2", yc + 6).attr("stroke", "var(--text)").attr("stroke-width", 2).attr("opacity", 0.55);
       arps.forEach((d, k) => {
-        const v = d.items[p.i]; if (v == null) return;
-        svg.append("circle").attr("cx", x(v)).attr("cy", p.y + (arps.length > 1 ? (k - (arps.length - 1) / 2) * 3 : 0)).attr("r", 5.5)
+        const v = d.items[i]; if (v == null) return;
+        body.append("circle").attr("cx", x(v)).attr("cy", yc + (arps.length > 1 ? (k - (arps.length - 1) / 2) * 3 : 0)).attr("r", 5.5)
           .attr("fill", opts.colors ? opts.colors[k] : COLOR[d.type]).attr("stroke", "var(--surface)").attr("stroke-width", 1.5)
           .on("pointermove", (ev) => showTip(ev, `<b>${d.name}</b>${it.label}: ${pct(v)}<br><span class="m">median ARP ${pct(med)}</span>`)).on("pointerleave", hideTip);
       });
+      y += rowH;
     });
+    svg.attr("height", y + 30);
+    x.ticks(5).forEach((t) => grid.append("line").attr("class", "gridline").attr("x1", x(t)).attr("x2", x(t)).attr("y1", 10).attr("y2", y));
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${y + 4})`).call(d3.axisBottom(x).ticks(5).tickFormat(d3.format(".0%")).tickSizeOuter(0));
+  }
+  // Break an SVG text into lines no wider than `width`. Returns the number of lines.
+  function wrap(sel, width, lineH = 15) {
+    const words = sel.text().split(/\s+/), x = sel.attr("x") || 0;
+    sel.text(null);
+    let line = [], n = 1, ts = sel.append("tspan").attr("x", x).attr("dy", 0);
+    words.forEach((word) => {
+      line.push(word); ts.text(line.join(" "));
+      if (ts.node().getComputedTextLength() > width && line.length > 1) {
+        line.pop(); ts.text(line.join(" ")); line = [word]; n++;
+        ts = sel.append("tspan").attr("x", x).attr("dy", lineH).text(word);
+      }
+    });
+    return n;
+  }
+  // Width of the longest of `texts` at the given label class.
+  function measureMax(svg, texts, cls = "lbl") {
+    const t = svg.append("text").attr("class", cls); let max = 0;
+    texts.forEach((s) => { t.text(s); max = Math.max(max, t.node().getComputedTextLength()); });
+    t.remove(); return max;
   }
   function fitText(sel, max) {
     const node = sel.node(), full = node.textContent; let t = full;
@@ -214,5 +236,5 @@ window.S = (function () {
   const legend = () => STYLE_ORDER.map((t) => chip(t)).join(" &nbsp; ");
   const debounce = (f, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), ms); }; };
 
-  return { STYLE_ORDER, COLOR, HEX, PAL, reveal, METRICS, M, fmtInt, pct, pts, reduce, load, showTip, hideTip, chip, arpTip, openProfile, wireProfile, itemDots, fitText, getCompare, setCompare, legend, debounce };
+  return { STYLE_ORDER, COLOR, HEX, PAL, reveal, METRICS, M, fmtInt, pct, pts, reduce, load, showTip, hideTip, chip, arpTip, openProfile, wireProfile, itemDots, wrap, measureMax, fitText, getCompare, setCompare, legend, debounce };
 })();

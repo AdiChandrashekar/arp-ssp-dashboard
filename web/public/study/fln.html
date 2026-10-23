@@ -106,20 +106,25 @@ header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
   // Dot rows: one row per item, one dot per series.
   function dotRows(svg, rows, series, opts = {}) {
     svg.selectAll("*").remove();
-    const w = svg.node().getBoundingClientRect().width, labW = Math.min(w * 0.46, 280), rowH = 24, m = { t: 8, b: 30 };
-    const h = m.t + rows.length * rowH + m.b; svg.attr("height", h);
+    const w = svg.node().getBoundingClientRect().width, labW = Math.min(w * 0.46, 280), lineH = 15, m = { t: 8, b: 30 };
     const lo = opts.lo ?? 0.5;
     const x = d3.scaleLinear().domain([lo, 1]).range([labW, w - 12]);
-    x.ticks(5).forEach((t) => svg.append("line").attr("class", "gridline").attr("x1", x(t)).attr("x2", x(t)).attr("y1", m.t).attr("y2", h - m.b));
-    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${h - m.b + 4})`).call(d3.axisBottom(x).ticks(w < 500 ? 4 : 6).tickFormat(d3.format(".0%")).tickSizeOuter(0));
-    rows.forEach((r, i) => {
-      const y = m.t + i * rowH + rowH / 2;
-      S.fitText(svg.append("text").attr("class", "lbl").attr("x", 0).attr("y", y + 4).text(r.label), labW - 10);
+    const grid = svg.append("g");
+    let yy = m.t;
+    rows.forEach((r) => {
+      // question labels wrap; the row grows to fit them
+      const lab = svg.append("text").attr("class", "lbl").attr("x", 0).text(r.label);
+      const n = S.wrap(lab, labW - 10, lineH), rowH = Math.max(24, n * lineH + 7), y = yy + rowH / 2;
+      lab.attr("y", y + 4 - (n - 1) * lineH / 2);
+      yy += rowH;
       const vals = series.map((s) => [s, r.vals[s.key]]).filter(([, v]) => v != null);
       if (vals.length > 1) svg.append("line").attr("x1", x(d3.min(vals, (v) => v[1]))).attr("x2", x(d3.max(vals, (v) => v[1]))).attr("y1", y).attr("y2", y).attr("stroke", "var(--line)").attr("stroke-width", 3);
       vals.forEach(([s, v]) => svg.append("circle").attr("cx", x(Math.max(lo, v))).attr("cy", y).attr("r", 6).attr("fill", s.color).attr("stroke", "var(--surface)").attr("stroke-width", 1.5)
         .on("pointermove", (ev) => S.showTip(ev, `<b>${r.label}</b>${s.label}: ${pct(v)}`)).on("pointerleave", S.hideTip));
     });
+    svg.attr("height", yy + m.b);
+    x.ticks(5).forEach((t) => grid.append("line").attr("class", "gridline").attr("x1", x(t)).attr("x2", x(t)).attr("y1", m.t).attr("y2", yy));
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${yy + 4})`).call(d3.axisBottom(x).ticks(w < 500 ? 4 : 6).tickFormat(d3.format(".0%")).tickSizeOuter(0));
   }
 
   // 1. by grade
@@ -151,13 +156,12 @@ header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
     const f = $("optForm").value, svg = d3.select("#opts"); svg.selectAll("*").remove();
     const w = svg.node().getBoundingClientRect().width, labW = Math.min(w * 0.34, 230), rowH = 22, blockGap = 16;
     const its = Object.keys(OPT).filter((k) => fln.options[k] && fln.options[k][f + "1"]);
-    const h = its.length * (3 * rowH + blockGap + 18) + 10; svg.attr("height", h);
     const x = d3.scaleLinear().domain([0, 1]).range([labW, w - 8]);
     let y = 4;
     its.forEach((k) => {
       const it = items.find((i) => i.id === k);
-      S.fitText(svg.append("text").attr("class", "lbl-strong").attr("x", 0).attr("y", y + 12).text(it.label), w);
-      y += 18;
+      const n = S.wrap(svg.append("text").attr("class", "lbl-strong").attr("x", 0).attr("y", y + 12).text(it.label), w - 4, 16);
+      y += 2 + n * 16;
       [1, 2, 3].forEach((g) => {
         const dist = new Map((fln.options[k][f + g] || []).map(([v, s]) => [v, s]));
         svg.append("text").attr("class", "lbl").attr("x", 0).attr("y", y + rowH / 2 + 4).text("Grade " + g);
@@ -174,6 +178,7 @@ header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
       });
       y += blockGap;
     });
+    svg.attr("height", y + 6);
   }
   $("optForm").onchange = drawOpts;
   // 4. contradictions
@@ -181,19 +186,21 @@ header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
     ["guide", "Teacher doesn't have the Sandarshika → teacher referred to it"], ["wb", "No child did last week's worksheets → all checked by the teacher"]];
   function drawContra() {
     const svg = d3.select("#contra"); svg.selectAll("*").remove();
-    const w = svg.node().getBoundingClientRect().width, narrow = w < 560, rowH = narrow ? 58 : 40, labW = narrow ? 0 : Math.min(w * 0.5, 420);
-    svg.attr("height", CON.length * rowH + 34);
+    const w = svg.node().getBoundingClientRect().width, narrow = w < 560, labW = narrow ? 0 : Math.min(w * 0.5, 420), lineH = 15;
     const x = d3.scaleLinear().domain([0, 0.5]).range([labW, w - 60]);
-    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${CON.length * rowH + 6})`).call(d3.axisBottom(x).ticks(5).tickFormat(d3.format(".0%")).tickSizeOuter(0));
+    let yy = 0;
     CON.forEach(([k, lab], i) => {
-      const c = fln.contradictions[k], r = c.hit / Math.max(c.premise, 1), y = i * rowH;
-      S.fitText(svg.append("text").attr("class", "lbl").attr("x", 0).attr("y", y + 16).text(lab), narrow ? w : labW - 10);
-      const by = narrow ? y + 24 : y + 4;
+      const c = fln.contradictions[k], r = c.hit / Math.max(c.premise, 1), y = yy;
+      const n = S.wrap(svg.append("text").attr("class", "lbl").attr("x", 0).attr("y", y + 16).text(lab), narrow ? w - 4 : labW - 10, lineH);
+      const by = narrow ? y + 8 + n * lineH : y + 4;
+      yy += narrow ? n * lineH + 40 : Math.max(40, n * lineH + 12);
       svg.append("rect").attr("x", x(0)).attr("y", by).attr("height", 22).attr("rx", 4).attr("width", 0).attr("fill", "var(--text)")
         .on("pointermove", (ev) => S.showTip(ev, `${fmtInt(c.hit)} of ${fmtInt(c.premise)} forms`)).on("pointerleave", S.hideTip)
         .transition().duration(S.reduce ? 0 : 800).attr("width", x(r) - x(0));
       svg.append("text").attr("class", "lbl-strong").attr("x", x(r) + 6).attr("y", by + 16).text(`${pct(r)}`);
     });
+    svg.attr("height", yy + 34);
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${yy + 6})`).call(d3.axisBottom(x).ticks(5).tickFormat(d3.format(".0%")).tickSizeOuter(0));
     const m = (t) => d3.mean(data.typed.filter((d) => d.type === t), (d) => d.contradictions);
     $("contraStyle").textContent = `The average Uniform ARP gives a contradicting answer on ${pct(m("uniform"))} of the forms where one is possible, the average Mixed ARP on ${pct(m("mixed"))} and the average Varied ARP on ${pct(m("varied"))}.`;
   }
@@ -212,11 +219,12 @@ header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
     const k = $("hsort").value;
     rows.sort(k === "name" ? (a, b) => a.name.localeCompare(b.name) : (a, b) => (a[k] ?? 9) - (b[k] ?? 9));
     const wrapW = document.querySelector(".heatwrap").getBoundingClientRect().width - 2;
-    const rowH = rows.length > 150 ? 4 : 14, showNames = rowH > 4, nameW = showNames ? Math.min(190, wrapW * 0.32) : 14, headH = 140;
-    const cellW = Math.max(18, (wrapW - nameW - 8) / items.length);
-    svg.attr("width", nameW + cellW * items.length + 8).attr("height", headH + rows.length * rowH + 8);
+    const longest = S.measureMax(svg, items.map((it) => it.label));
+    const rowH = rows.length > 150 ? 4 : 14, showNames = rowH > 4, nameW = showNames ? Math.min(190, wrapW * 0.32) : 14, headH = Math.ceil(longest * 0.87) + 16;
+    const cellW = Math.max(18, (wrapW - nameW - 8 - longest * 0.5) / items.length);
+    svg.attr("width", nameW + cellW * items.length + 8 + longest * 0.5).attr("height", headH + rows.length * rowH + 8);
     const seq = S.PAL.seq;
-    items.forEach((it, j) => S.fitText(svg.append("text").attr("class", "lbl").attr("transform", `translate(${nameW + j * cellW + cellW / 2 + 3},${headH - 6}) rotate(-60)`).text(it.label), headH * 1.12));
+    items.forEach((it, j) => svg.append("text").attr("class", "lbl").attr("transform", `translate(${nameW + j * cellW + cellW / 2 + 3},${headH - 6}) rotate(-60)`).text(it.label));
     const g = svg.append("g").attr("transform", `translate(0,${headH})`);
     const row = g.selectAll("g").data(rows).join("g").attr("transform", (d, i) => `translate(0,${i * rowH})`).style("cursor", "pointer").on("click", (ev, d) => S.openProfile(d));
     row.append("rect").attr("x", nameW - 8).attr("width", 5).attr("height", rowH - (showNames ? 1 : 0)).attr("fill", (d) => COLOR[d.type]);

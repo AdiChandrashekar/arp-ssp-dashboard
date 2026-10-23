@@ -228,7 +228,17 @@
     d3.forceSimulation(sim).force("x", d3.forceX((s) => s.tx).strength(1)).force("y", d3.forceY(yc).strength(0.05)).force("c", d3.forceCollide(R + 0.6)).stop().tick(220);
     return Object.fromEntries(sim.map((s) => [s.id, [s.x, Math.max(M.t, Math.min(H - M.b, s.y))]]));
   }
-  const wallTop = () => (narrow() ? 110 : 150);  // room for the slanted question labels
+  // Room above the wall for the full, slanted question labels; columns stop short of the edge so the last labels fit.
+  const wallItems = () => meta.items.filter((it) => it.group === "fln" && it.id !== "fluency");
+  let wallLab;
+  const wallLabelW = () => (wallLab ??= S.measureMax(svg, wallItems().map((it) => it.label)));
+  const wallAngle = () => (narrow() ? 78 : 60) * Math.PI / 180;  // steeper on phones, where columns are narrow
+  const wallTop = () => Math.ceil(wallLabelW() * Math.sin(wallAngle())) + 24;
+  const wallRight = () => {
+    const its = wallItems(), cell = (W - M.l - M.r) / its.length;
+    const pad = d3.max(its, (it, k) => S.measureMax(svg, [it.label]) * Math.cos(wallAngle()) - (its.length - 1 - k) * cell);
+    return W - M.r - Math.max(0, pad);
+  };
   const sortedByVariety = nodes.slice().sort((a, b) => a.d.variety - b.d.variety);
   function layout(name) {
     if (layouts[name]) return layouts[name];
@@ -307,7 +317,7 @@
     if (name === "wall") {
       const items = meta.items.map((it, i) => [it, i]).filter(([it]) => it.group === "fln" && it.id !== "fluency");
       const y = d3.scaleBand().domain(sortedByVariety.map((n) => n.id)).range([wallTop(), H - M.b]);
-      const x = d3.scaleBand().domain(items.map(([it]) => it.id)).range([M.l, W - M.r]).padding(0.04);
+      const x = d3.scaleBand().domain(items.map(([it]) => it.id)).range([M.l, wallRight()]).padding(0.04);
       const color = S.PAL.seq;
       const rows = gOver.selectAll("g").data(sortedByVariety).join("g").attr("transform", (n) => `translate(0,${y(n.id)})`).attr("opacity", 0);
       rows.selectAll("rect").data((n) => items.map(([it, i]) => [n.d, it, n.d.items[i]])).join("rect")
@@ -318,10 +328,8 @@
       const lab = gLbl.append("g");
       // Column labels run up and to the right; each is cut to fit the space left to the edge.
       items.forEach(([it], i) => {
-        if (narrow() && i % 2) return;
         const x0 = x(it.id) + x.bandwidth() / 2;
-        const t = lab.append("text").attr("class", "lbl").attr("transform", `translate(${x0 - 3},${wallTop() - 6}) rotate(-60)`).text(it.label);
-        S.fitText(t, Math.min((wallTop() - 8) / 0.87, (W - x0) * 2));
+        lab.append("text").attr("class", "lbl").attr("transform", `translate(${x0 - 3},${wallTop() - 6}) rotate(${-wallAngle() * 180 / Math.PI})`).text(it.label);
       });
       gLbl.append("text").attr("class", "lbl-strong").attr("x", M.l).attr("y", H - M.b + 18).text("Top: least varied ARPs · bottom: most varied");
       gLbl.attr("opacity", 0).transition().delay(reduce ? 0 : 600).attr("opacity", 1);

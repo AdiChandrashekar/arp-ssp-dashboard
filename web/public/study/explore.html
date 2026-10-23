@@ -222,15 +222,15 @@ td.cb, th.cb { width: 34px; text-align: center; }
     rows = rows.slice().sort(st.hs === "name" ? (a, b) => a.name.localeCompare(b.name) : (a, b) => (a[st.hs] ?? 9) - (b[st.hs] ?? 9));
     const wrapW = $("v-items").getBoundingClientRect().width - 2;
     const rowH = rows.length > 150 ? 4 : 15, showNames = rowH >= 12;
-    const nameW = showNames ? Math.min(180, wrapW * 0.3) : 14, headH = 170;
-    const cellW = Math.max(16, (wrapW - nameW - 10) / items.length), w = nameW + cellW * items.length + 10;
+    const longest = S.measureMax(svg, items.map((it) => it.label));
+    const nameW = showNames ? Math.min(180, wrapW * 0.3) : 14, headH = Math.ceil(longest * 0.87) + 40;  // full question labels, slanted
+    const cellW = Math.max(16, (wrapW - nameW - 10 - longest * 0.5) / items.length), w = nameW + cellW * items.length + 10 + longest * 0.5;
     svg.attr("width", w).attr("height", headH + rows.length * rowH + 10);
     const groupsX = {}; items.forEach((it, i) => { (groupsX[it.group] = groupsX[it.group] || []).push(i); });
     const seq = S.PAL.seq;
     const divColor = S.PAL.div;
     items.forEach((it, i) => {
-      const t = svg.append("text").attr("class", "lbl").attr("transform", `translate(${nameW + i * cellW + cellW / 2 + 3},${headH - 6}) rotate(-60)`).text(it.label);
-      S.fitText(t, (headH - 40) / Math.sin(Math.PI / 3));
+      svg.append("text").attr("class", "lbl").attr("transform", `translate(${nameW + i * cellW + cellW / 2 + 3},${headH - 6}) rotate(-60)`).text(it.label);
     });
     Object.entries({ fln: "Grade 1–3 FLN", g: "Grade 4–8", school: "School" }).forEach(([g, lab]) => {
       const ix = groupsX[g]; if (!ix) return;
