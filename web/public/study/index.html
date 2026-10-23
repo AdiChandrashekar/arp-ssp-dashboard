@@ -7,38 +7,39 @@
 <meta name="description" content="How ARPs in 10 UP districts fill in the classroom-observation form, question by question, and the recording styles that emerge.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="common.css">
 <style>
 .hero { min-height: 88svh; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
-.hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .5; }
+.hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .7; }
 .hero .wrap { position: relative; width: 100%; }
 .counters { display: flex; flex-wrap: wrap; gap: 24px 48px; margin-top: 36px; }
-.counter b { display: block; font-family: var(--serif); font-size: clamp(28px, 4.5vw, 46px); line-height: 1; }
-.counter span { font-size: 13px; color: var(--muted); }
+.counter b { display: block; font-family: var(--display); font-weight: 800; font-size: clamp(32px, 5vw, 54px); line-height: 1; letter-spacing: -.02em; }
+.counter span { font-size: 14px; color: var(--text-2); }
 .cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
-.cta a { color: var(--text); border: 1px solid var(--line); background: var(--surface-2); border-radius: 999px; padding: 9px 16px; text-decoration: none; font-size: 14px; }
-.cta a:hover { border-color: var(--text-2); }
+.cta a { color: var(--text); border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 11px 20px; text-decoration: none; font-size: 15px; font-weight: 500; box-shadow: 0 2px 0 var(--line); }
+.cta a:first-child { background: var(--text); color: var(--bg); border-color: var(--text); box-shadow: none; }
+.cta a:hover { transform: translateY(-1px); }
 
 .scrolly { position: relative; display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 40px; }
 .graphic { position: sticky; top: 50px; height: calc(100svh - 50px); display: flex; align-items: center; grid-column: 2; grid-row: 1; min-width: 0; }
 .graphic svg { width: 100%; height: calc(100svh - 110px); display: block; overflow: visible; }
 .steps { grid-column: 1; grid-row: 1; padding: 30svh 0 40svh; min-width: 0; }
 .step { min-height: 88svh; display: flex; align-items: center; }
-.card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 22px 22px 20px; opacity: .35; transition: opacity .4s; width: 100%; }
-.step.active .card { opacity: 1; }
-.card h2 { font-family: var(--serif); font-size: 25px; line-height: 1.15; margin: 0 0 10px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 24px 24px 22px; opacity: .45; transform: translateY(10px); transition: opacity .45s, transform .45s cubic-bezier(.2,.7,.2,1), box-shadow .45s; width: 100%; }
+.step.active .card { opacity: 1; transform: none; box-shadow: 0 2px 0 var(--line), 0 18px 40px rgba(30,27,46,.08); }
+.card h2 { font-family: var(--display); font-weight: 800; font-size: 27px; line-height: 1.1; margin: 0 0 12px; letter-spacing: -.015em; }
 .card p { margin: 0 0 10px; color: var(--text-2); }
 .card p:last-child { margin-bottom: 0; }
 .card strong { color: var(--text); }
 .card ul { padding-left: 18px; margin: 6px 0 0; color: var(--text-2); }
 .card li { margin-bottom: 6px; }
-.method { columns: 2 340px; column-gap: 40px; color: var(--text-2); font-size: 15px; }
-.method h3 { font-size: 15px; color: var(--text); margin: 0 0 4px; break-after: avoid; }
+.method { columns: 2 340px; column-gap: 48px; color: var(--text-2); font-size: 15.5px; }
+.method h3 { font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--text); margin: 0 0 4px; break-after: avoid; }
 .method p { margin: 0 0 18px; break-inside: avoid; }
 @media (max-width: 860px) {
   .scrolly { display: block; }
-  .graphic { top: 46px; height: 56svh; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .graphic { top: 46px; height: 56svh; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); box-shadow: 0 8px 18px rgba(251,248,243,.9); }
   .graphic svg { height: 54svh; }
   .steps { padding: 6svh 0 30svh; position: relative; z-index: 1; }
   .step { min-height: 72svh; align-items: flex-start; }
@@ -56,7 +57,7 @@
   <canvas id="herocanvas" aria-hidden="true"></canvas>
   <div class="wrap">
     <div class="kicker">NIPUN Bharat · ARP supportive supervision · Uttar Pradesh</div>
-    <h1>Every ARP fills the same form. No two fill it the same way.</h1>
+    <h1>Every ARP fills the same form. <mark>No two fill it the same way.</mark></h1>
     <p class="lead">ARPs record a classroom observation on every school visit. Read question by question, the forms show stable habits: how often an ARP says yes, whether they ever pick "some" or "partial", where they end the form, and what they write down about attendance.</p>
     <div class="counters">
       <div class="counter"><b class="num" data-count="arpVisits">0</b><span>ARP observations</span></div>
@@ -79,8 +80,8 @@
       </div></div>
 
       <div class="step" data-layout="wall"><div class="card">
-        <h2>A wall of answers</h2>
-        <p>Each row is one ARP and each column one of the 12 questions on the Grade 1–3 FLN form. Brighter cells mean the ARP marked that practice as seen more often.</p>
+        <h2>A <mark>wall</mark> of answers</h2>
+        <p>Each row is one ARP and each column one of the 12 questions on the Grade 1–3 FLN form. Darker red means the ARP marked that practice as seen more often.</p>
         <p>The rows are sorted by how much the ARP's answers change between classrooms. At the top, rows are solid: the same top answer on nearly every form, in every classroom.</p>
       </div></div>
 
@@ -91,7 +92,7 @@
       </div></div>
 
       <div class="step" data-layout="styles"><div class="card">
-        <h2>Three recording styles</h2>
+        <h2>Three <mark>recording styles</mark></h2>
         <ul>
           <li><span class="chip" style="--c:var(--uniform)">Uniform</span> <span data-bind="n-uniform"></span>: near-identical forms, variety below 0.35. On average <strong data-bind="u-allyes"></strong> of their FLN forms have every top answer.</li>
           <li><span class="chip" style="--c:var(--mixed)">Mixed</span> <span data-bind="n-mixed"></span>: variety between 0.35 and 0.65.</li>
@@ -100,7 +101,7 @@
       </div></div>
 
       <div class="step" data-layout="partial"><div class="card">
-        <h2>Some ARPs never pick "some"</h2>
+        <h2>Some ARPs <mark>never pick "some"</mark></h2>
         <p>Five FLN questions have middle answers: "some children participated", "partial remedial work", "some workbooks checked". Uniform ARPs choose a middle answer <strong data-bind="u-partial"></strong> of the time; Varied ARPs <strong data-bind="v-partial"></strong>.</p>
         <p><strong data-bind="nNoPartial"></strong> ARPs pick a middle answer on fewer than 1 in 20 questions. For them the scale is effectively yes or no.</p>
       </div></div>
@@ -118,7 +119,7 @@
       </div></div>
 
       <div class="step" data-layout="facts"><div class="card">
-        <h2>Facts that shouldn't change, do</h2>
+        <h2>Facts that shouldn't change, <mark>do</mark></h2>
         <p>Some answers describe the school, not the lesson: an active library, sports material, an eco club, a timetable. When an ARP returns to a school weeks later, those answers change on <strong data-bind="factObs"></strong> of revisits. If ARPs answered at random at their usual yes-rates, they would change on <strong data-bind="factExp"></strong>.</p>
         <p>So the school section tracks the school only a little better than chance, and Varied ARPs change these facts most. Variety isn't always careful observation; sometimes it is noise.</p>
       </div></div>
@@ -130,7 +131,7 @@
       </div></div>
 
       <div class="step" data-layout="district"><div class="card">
-        <h2>Style is local</h2>
+        <h2>Style is <mark>local</mark></h2>
         <p>Each row is a district, with its ARPs grouped by style. In <strong data-bind="dTop"></strong>, most ARPs are Uniform. In <strong data-bind="dBottom"></strong>, few are.</p>
         <p>Within a block, ARPs resemble each other: block explains <strong data-bind="blkVar"></strong> of the differences in answer variety, against <strong data-bind="blkChance"></strong> by chance. That points to how blocks train, check and use the form.</p>
       </div></div>
@@ -145,7 +146,7 @@
 
   <section class="block" id="method">
     <div class="wrap">
-      <h2 class="sec">How this was measured</h2>
+      <h2 class="sec rise">How this was measured</h2>
       <div class="method">
         <h3>Data</h3>
         <p>Every classroom observation in the mentor-app exports for the 10 programme districts (<span data-bind="range"></span>). Names, districts and blocks are as recorded in the app. An ARP is identified by their (hashed) phone number.</p>
@@ -215,7 +216,7 @@
 
   function size() {
     const r = svg.node().getBoundingClientRect();
-    W = r.width; H = r.height; R = W < 520 ? 2.6 : W < 800 ? 3.2 : 4;
+    W = r.width; H = r.height; R = W < 520 ? 3 : W < 800 ? 3.8 : 4.8;
     M = { t: W < 520 ? 52 : 34, r: 14, b: 48, l: W < 520 ? 42 : 56 };
     layouts = {};
   }
@@ -307,10 +308,10 @@
       const items = meta.items.map((it, i) => [it, i]).filter(([it]) => it.group === "fln" && it.id !== "fluency");
       const y = d3.scaleBand().domain(sortedByVariety.map((n) => n.id)).range([wallTop(), H - M.b]);
       const x = d3.scaleBand().domain(items.map(([it]) => it.id)).range([M.l, W - M.r]).padding(0.04);
-      const color = d3.scaleSequential(d3.interpolateRgb("#141a22", "#f6c25b")).domain([0.3, 1]).clamp(true);
+      const color = S.PAL.seq;
       const rows = gOver.selectAll("g").data(sortedByVariety).join("g").attr("transform", (n) => `translate(0,${y(n.id)})`).attr("opacity", 0);
       rows.selectAll("rect").data((n) => items.map(([it, i]) => [n.d, it, n.d.items[i]])).join("rect")
-        .attr("x", ([, it]) => x(it.id)).attr("width", x.bandwidth()).attr("height", Math.max(1, y.bandwidth())).attr("fill", ([, , v]) => (v == null ? "#101317" : color(v)))
+        .attr("x", ([, it]) => x(it.id)).attr("width", x.bandwidth()).attr("height", Math.max(1, y.bandwidth())).attr("fill", ([, , v]) => (v == null ? S.PAL.nullCell : color(v)))
         .on("pointermove", (ev, [d, it, v]) => S.showTip(ev, `<b>${d.name}</b>${it.label}: ${pct(v)}<br><span class="m">variety ${d.variety.toFixed(2)}</span>`)).on("pointerleave", S.hideTip)
         .on("click", (ev, [d]) => S.openProfile(d));
       rows.transition().delay((n, i) => (reduce ? 0 : 300 + (sortedByVariety.length - i) * 2)).duration(reduce ? 0 : 300).attr("opacity", 1);

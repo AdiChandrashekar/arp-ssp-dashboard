@@ -7,25 +7,25 @@
 <meta name="description" content="Search, sort, plot and compare how every ARP fills in the classroom-observation form.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="common.css">
 <style>
 header.top { padding: 40px 0 10px; }
 header.top h1 { font-size: clamp(30px, 5vw, 52px); margin: 8px 0 10px; }
 .view { display: none; }
 .view.on { display: block; }
-.heatwrap { overflow: auto; max-height: 78svh; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.heatwrap { overflow: auto; max-height: 78svh; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 2px 0 var(--line); }
 .cmppick { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-.cmppick .p { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 6px 5px 12px; background: var(--surface-2); font-size: 14px; }
+.cmppick .p { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 8px 6px 14px; background: var(--surface); font-size: 14.5px; font-weight: 500; }
 .cmppick .p i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .cmppick .p button { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; }
 .metricdesc { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
 td.cb, th.cb { width: 34px; text-align: center; }
 .stylebar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; min-width: 120px; }
 .stylebar i { display: block; height: 100%; }
-#suggest { position: absolute; z-index: 30; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; max-height: 260px; overflow: auto; width: min(360px, calc(100vw - 32px)); }
+#suggest { position: absolute; top: 48px; z-index: 30; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 30px rgba(30,27,46,.14); max-height: 260px; overflow: auto; width: min(360px, calc(100vw - 32px)); }
 #suggest div { padding: 7px 10px; cursor: pointer; font-size: 14px; }
-#suggest div:hover { background: var(--line); }
+#suggest div:hover { background: #FFF1C2; }
 </style>
 </head>
 <body>
@@ -34,7 +34,7 @@ td.cb, th.cb { width: 34px; text-align: center; }
 
 <header class="top"><div class="wrap">
   <div class="kicker">Explore</div>
-  <h1>Every ARP, every question</h1>
+  <h1>Every ARP, <mark>every question</mark></h1>
   <p class="lead">Filter to a district, block or style, then sort the table, plot any two measures against each other, scan the answer patterns question by question, or put up to four ARPs side by side. Click any ARP for their full profile. Filters and views are kept in the link, so you can share what you're looking at.</p>
 </div></header>
 
@@ -65,7 +65,7 @@ td.cb, th.cb { width: 34px; text-align: center; }
       <label>Colour <select id="sc"><option value="type">Style</option><option value="district">District</option></select></label>
     </div>
     <p class="metricdesc" id="sdesc"></p>
-    <div class="panel"><svg class="chart" id="scat"></svg></div>
+    <div class="panel rise"><svg class="chart" id="scat"></svg></div>
   </section>
 
   <section class="view" id="v-items">
@@ -92,7 +92,7 @@ td.cb, th.cb { width: 34px; text-align: center; }
       <label>Group by <select id="gby"><option value="district">District</option><option value="block">Block</option></select></label>
       <label>Spread of <select id="gm"></select></label>
     </div>
-    <div class="panel"><svg class="chart" id="gstrip"></svg></div>
+    <div class="panel rise"><svg class="chart" id="gstrip"></svg></div>
     <h3 class="sub">Averages</h3>
     <div class="tablewrap" style="max-height:70svh"><table class="data" id="gtbl"></table></div>
   </section>
@@ -108,8 +108,8 @@ td.cb, th.cb { width: 34px; text-align: center; }
   const { STYLE_ORDER, COLOR, METRICS, M, pct, fmtInt } = S;
   const data = await S.load();
   const T = data.TYPES, all = data.arps;
-  const CMP_COLORS = ["#3987e5", "#d95926", "#199e70", "#9085e9"];
-  const DIST_COLORS = d3.scaleOrdinal(data.meta.districts, ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#9085e9", "#e66767", "#7fb800", "#2ab3c0", "#c3c2b7"]);
+  const CMP_COLORS = S.PAL.cmp;
+  const DIST_COLORS = d3.scaleOrdinal(data.meta.districts, S.PAL.district);
 
   // ---- state in the URL ----
   const P = new URLSearchParams(location.search);
@@ -226,8 +226,8 @@ td.cb, th.cb { width: 34px; text-align: center; }
     const cellW = Math.max(16, (wrapW - nameW - 10) / items.length), w = nameW + cellW * items.length + 10;
     svg.attr("width", w).attr("height", headH + rows.length * rowH + 10);
     const groupsX = {}; items.forEach((it, i) => { (groupsX[it.group] = groupsX[it.group] || []).push(i); });
-    const seq = d3.scaleSequential(d3.interpolateRgb("#141a22", "#f6c25b")).domain([0.3, 1]).clamp(true);
-    const divColor = (v) => { const t = Math.max(-1, Math.min(1, v / 0.4)); return t < 0 ? d3.interpolateRgb("#262c34", "#4c9bf0")(-t) : d3.interpolateRgb("#262c34", "#f2b134")(t); };
+    const seq = S.PAL.seq;
+    const divColor = S.PAL.div;
     items.forEach((it, i) => {
       const t = svg.append("text").attr("class", "lbl").attr("transform", `translate(${nameW + i * cellW + cellW / 2 + 3},${headH - 6}) rotate(-60)`).text(it.label);
       S.fitText(t, (headH - 40) / Math.sin(Math.PI / 3));
@@ -243,7 +243,7 @@ td.cb, th.cb { width: 34px; text-align: center; }
     if (showNames) row.append("text").attr("class", "lbl").attr("x", 0).attr("y", rowH / 2 + 4).text((d) => d.name).each(function () { S.fitText(d3.select(this), nameW - 14); });
     row.selectAll("rect.c").data((d) => items.map((it, i) => [d, it, i])).join("rect").attr("class", "c")
       .attr("x", ([, , i]) => nameW + i * cellW).attr("width", cellW - 1).attr("height", rowH - (rowH > 4 ? 1 : 0))
-      .attr("fill", ([d, , i]) => { const v = d.items[i]; if (v == null) return "#101317"; return st.hm === "diff" ? divColor(v - (data.itemMedian[i] ?? v)) : seq(v); })
+      .attr("fill", ([d, , i]) => { const v = d.items[i]; if (v == null) return S.PAL.nullCell; return st.hm === "diff" ? divColor(v - (data.itemMedian[i] ?? v)) : seq(v); })
       .on("pointermove", (ev, [d, it, i]) => S.showTip(ev, `<b>${d.name}</b>${it.label}: ${pct(d.items[i])}<br><span class="m">median ARP ${pct(data.itemMedian[i])}</span>`)).on("pointerleave", S.hideTip);
   }
 
@@ -255,7 +255,7 @@ td.cb, th.cb { width: 34px; text-align: center; }
     if (!arps.length) { $("cbody").innerHTML = `<p class="note">Add ARPs with the search box above, by ticking them in the table, or with "Add to comparison" on a profile.</p>`; return; }
     const rowsM = ["variety", "flnLean", "flnAllYes", "partial", "contradictions", "noPlan", "gAllYes", "allPresent", "factFlip", "enrSame", "teacherRepeat", "hindiShare", "grade1Share", "minutes", "visitsPerMonth", "targetShare", "schools", "visits"];
     $("cbody").innerHTML = `<div class="grid2">
-      <div class="panel"><h3 class="sub" style="margin-top:0">Question by question</h3><p class="note">Dots show each ARP's share marked as seen; the line is the median ARP.</p><svg class="chart" id="cdots"></svg></div>
+      <div class="panel rise"><h3 class="sub" style="margin-top:0">Question by question</h3><p class="note">Dots show each ARP's share marked as seen; the line is the median ARP.</p><svg class="chart" id="cdots"></svg></div>
       <div><div class="tablewrap"><table class="data"><thead><tr><th>Measure</th>${arps.map((d, i) => `<th class="n"><span class="chip" style="--c:${CMP_COLORS[i]}">${d.name.split(" ")[0]}</span></th>`).join("")}<th class="n">Median ARP</th></tr></thead>
       <tbody><tr><td>Style</td>${arps.map((d) => `<td class="n">${T[d.type].label}</td>`).join("")}<td></td></tr>
       ${rowsM.map((k) => `<tr title="${M[k].desc}"><td>${M[k].label}</td>${arps.map((d) => `<td class="n">${M[k].fmt(d[k])}</td>`).join("")}<td class="n">${M[k].fmt(d3.median(data.typed, (d) => d[k]))}</td></tr>`).join("")}</tbody></table></div>

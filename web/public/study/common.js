@@ -2,7 +2,19 @@
 window.S = (function () {
   const STYLE_ORDER = ["uniform", "mixed", "varied"];
   const COLOR = { uniform: "var(--uniform)", mixed: "var(--mixed)", varied: "var(--varied)", few: "var(--few)" };
-  const HEX = { uniform: "#f2b134", mixed: "#8f8d86", varied: "#4c9bf0", few: "#4a5058" };
+  const HEX = { uniform: "#E8553F", mixed: "#8C8798", varied: "#2E6FD8", few: "#CFCAD6" };
+  // Chart colours other than the three styles (see docs/DESIGN.md).
+  const lerp = (a, b) => d3.interpolateRgb(a, b);
+  const PAL = {
+    seq: d3.scaleSequential(d3.interpolateRgbBasis(["#F6EFE6", "#F7B9A6", "#E8553F", "#8F2414"])).domain([0.3, 1]).clamp(true),
+    div: (v) => { const t = Math.max(-1, Math.min(1, v / 0.4)); return t < 0 ? lerp("#EEE9E1", "#2E6FD8")(-t) : lerp("#EEE9E1", "#E8553F")(t); },
+    nullCell: "#F3EEE6",
+    cmp: ["#7B3FE4", "#0F8B8D", "#B5651D", "#C2185B"],
+    district: ["#7B3FE4", "#0F8B8D", "#B5651D", "#C2185B", "#2E6FD8", "#E8553F", "#5C8A00", "#8C8798", "#C79A00", "#1E1B2E"],
+    grade: { 1: "#CFCAD6", 2: "#8C8798", 3: "#1E1B2E" },
+    subject: { FH: "#C2185B", FM: "#0F8B8D" },
+    opt: { top: "#1E1B2E", mid: "#8C8798", low: "#E4DDD1" },
+  };
   const fmtInt = d3.format(",");
   const pct = (x) => (x == null ? "–" : Math.round(x * 100) + "%");
   const pts = (x) => (x == null ? "–" : (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(Math.round(x * 100)) + " pts");
@@ -57,8 +69,18 @@ window.S = (function () {
     const d0 = d3.timeParse("%Y-%m-%d");
     data.range = `${d3.timeFormat("%B %Y")(d0(data.meta.dateFrom))} to ${d3.timeFormat("%B %Y")(d0(data.meta.dateTo))}`;
     DATA = data;
+    reveal();
     document.querySelectorAll("[data-bind=generated]").forEach((el) => (el.textContent = d3.timeFormat("%d %b %Y")(new Date(data.meta.generatedAt))));
     return data;
+  }
+
+  // Highlighter marks sweep in and .rise elements lift in as they reach the screen.
+  function reveal() {
+    // Reveal on entry, and also anything a jump scrolled past.
+    const io = new IntersectionObserver((es) => es.forEach((e) => {
+      if (e.isIntersecting || e.boundingClientRect.top < 0) { e.target.classList.add(e.target.matches("mark,.mark") ? "on" : "in"); io.unobserve(e.target); }
+    }), { rootMargin: "0px 0px -12% 0px" });
+    document.querySelectorAll("mark, .mark, .rise").forEach((el) => io.observe(el));
   }
 
   // ---- tooltip ----
@@ -146,7 +168,7 @@ window.S = (function () {
       arps.forEach((d, k) => {
         const v = d.items[p.i]; if (v == null) return;
         svg.append("circle").attr("cx", x(v)).attr("cy", p.y + (arps.length > 1 ? (k - (arps.length - 1) / 2) * 3 : 0)).attr("r", 5.5)
-          .attr("fill", opts.colors ? opts.colors[k] : COLOR[d.type]).attr("stroke", "var(--bg)").attr("stroke-width", 1.5)
+          .attr("fill", opts.colors ? opts.colors[k] : COLOR[d.type]).attr("stroke", "var(--surface)").attr("stroke-width", 1.5)
           .on("pointermove", (ev) => showTip(ev, `<b>${d.name}</b>${it.label}: ${pct(v)}<br><span class="m">median ARP ${pct(med)}</span>`)).on("pointerleave", hideTip);
       });
     });
@@ -192,5 +214,5 @@ window.S = (function () {
   const legend = () => STYLE_ORDER.map((t) => chip(t)).join(" &nbsp; ");
   const debounce = (f, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), ms); }; };
 
-  return { STYLE_ORDER, COLOR, HEX, METRICS, M, fmtInt, pct, pts, reduce, load, showTip, hideTip, chip, arpTip, openProfile, wireProfile, itemDots, fitText, getCompare, setCompare, legend, debounce };
+  return { STYLE_ORDER, COLOR, HEX, PAL, reveal, METRICS, M, fmtInt, pct, pts, reduce, load, showTip, hideTip, chip, arpTip, openProfile, wireProfile, itemDots, fitText, getCompare, setCompare, legend, debounce };
 })();
