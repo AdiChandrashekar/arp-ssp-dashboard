@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What ARP Forms Reveal</title>
+<meta name="description" content="How ARPs in 10 UP districts fill in classroom-observation forms, compared with DIET mentors and SRGs who saw the same schools.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0c0f13;
+  --surface: #101317;
+  --surface-2: #171b21;
+  --line: #262c34;
+  --grid: #20262d;
+  --text: #eeede8;
+  --text-2: #b9b8b0;
+  --muted: #85847d;
+  --allclear: #f0534f;
+  --boxtick: #f2b134;
+  --mixed: #8f8d86;
+  --discerning: #4c9bf0;
+  --few: #3a3f46;
+  --ind: #eeede8;
+  --serif: "Source Serif 4", Georgia, serif;
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 16px; line-height: 1.55; }
+a { color: var(--discerning); }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---- hero ---- */
+.hero { min-height: 92svh; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
+.hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .55; }
+.hero .wrap { position: relative; }
+.kicker { text-transform: uppercase; letter-spacing: .12em; font-size: 12px; color: var(--muted); font-weight: 600; }
+h1 { font-family: var(--serif); font-size: clamp(38px, 7vw, 84px); line-height: 1.02; margin: 14px 0 18px; max-width: 14ch; letter-spacing: -.01em; }
+.dek { font-size: clamp(17px, 2.2vw, 21px); color: var(--text-2); max-width: 46ch; margin: 0; }
+.counters { display: flex; flex-wrap: wrap; gap: 28px 48px; margin-top: 40px; }
+.counter b { display: block; font-family: var(--serif); font-size: clamp(30px, 4.5vw, 46px); line-height: 1; }
+.counter span { font-size: 13px; color: var(--muted); }
+.scrollcue { margin-top: 48px; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+.scrollcue i { width: 1px; height: 36px; background: linear-gradient(var(--muted), transparent); animation: cue 1.8s infinite; }
+@keyframes cue { 0% { transform: scaleY(0); transform-origin: top; } 50% { transform: scaleY(1); transform-origin: top; } 100% { transform: scaleY(0); transform-origin: bottom; } }
+
+/* ---- scrolly ---- */
+.scrolly { position: relative; display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 40px; }
+.graphic { position: sticky; top: 0; height: 100svh; display: flex; align-items: center; grid-column: 2; grid-row: 1; }
+.graphic svg { width: 100%; height: 88svh; display: block; overflow: visible; }
+.steps { grid-column: 1; grid-row: 1; padding: 30svh 0 40svh; }
+.step { min-height: 88svh; display: flex; align-items: center; }
+.card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 22px 22px 20px; opacity: .35; transition: opacity .4s; }
+.step.active .card { opacity: 1; }
+.card h2 { font-family: var(--serif); font-size: 26px; line-height: 1.15; margin: 0 0 10px; }
+.card p { margin: 0 0 10px; color: var(--text-2); }
+.card p:last-child { margin-bottom: 0; }
+.card strong { color: var(--text); }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.chip::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.typelist { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }
+.typelist li { color: var(--text-2); font-size: 15px; }
+
+.axis text { fill: var(--muted); font-size: 12px; font-family: var(--sans); }
+.axis line, .axis path { stroke: var(--line); }
+.gridline { stroke: var(--grid); }
+.ref { stroke: var(--ind); stroke-dasharray: 3 4; opacity: .7; }
+.lbl { fill: var(--text-2); font-size: 12px; }
+.lbl-strong { fill: var(--text); font-size: 13px; font-weight: 600; }
+.lbl-big { fill: var(--text); font-family: var(--serif); font-size: 22px; font-weight: 700; }
+.namelbl { fill: var(--text); font-size: 11.5px; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+circle.dot { stroke: var(--bg); stroke-width: 1px; cursor: pointer; }
+circle.dot:hover { stroke: var(--text); stroke-width: 2px; }
+
+#tip { position: fixed; pointer-events: none; z-index: 50; background: #1d222a; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; font-size: 13px; line-height: 1.4; max-width: 260px; opacity: 0; transition: opacity .12s; box-shadow: 0 6px 24px rgba(0,0,0,.4); }
+#tip b { display: block; font-size: 14px; }
+#tip .m { color: var(--muted); }
+
+/* ---- sections ---- */
+section.block { padding: 90px 0 40px; border-top: 1px solid var(--line); }
+section.block h2 { font-family: var(--serif); font-size: clamp(28px, 4vw, 40px); margin: 0 0 10px; line-height: 1.1; }
+section.block > .wrap > p.lead { color: var(--text-2); max-width: 64ch; margin: 0 0 24px; font-size: 17px; }
+
+/* explorer */
+.controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.controls input, .controls select { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; font: inherit; font-size: 14px; }
+.controls input { flex: 1 1 220px; }
+.count { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+.list { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.row { display: grid; grid-template-columns: minmax(0, 1.6fr) 130px minmax(140px, 1fr) minmax(110px, .8fr); gap: 14px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); cursor: pointer; background: var(--surface); }
+.row:last-child { border-bottom: 0; }
+.row:hover, .row:focus-visible { background: var(--surface-2); outline: none; }
+.row .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .sub { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .t { font-size: 13px; }
+.bar { position: relative; height: 8px; background: var(--grid); border-radius: 4px; }
+.bar i { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+.bar .zero { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--ind); opacity: .6; }
+.barlbl { font-size: 11.5px; color: var(--muted); display: flex; justify-content: space-between; margin-bottom: 4px; }
+.listhead { display: grid; grid-template-columns: minmax(0, 1.6fr) 130px minmax(140px, 1fr) minmax(110px, .8fr); gap: 14px; padding: 8px 14px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.more { margin-top: 12px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 9px 14px; font: inherit; cursor: pointer; }
+
+/* profile */
+dialog { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(760px, calc(100vw - 24px)); max-height: calc(100svh - 24px); }
+dialog::backdrop { background: rgba(5,7,9,.72); backdrop-filter: blur(3px); }
+.pf { padding: 24px; }
+.pf header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.pf h3 { font-family: var(--serif); font-size: 30px; margin: 0; line-height: 1.1; }
+.pf .where { color: var(--muted); font-size: 14px; margin-top: 4px; }
+.pf .close { background: none; border: 1px solid var(--line); color: var(--text); border-radius: 8px; width: 36px; height: 36px; font-size: 20px; cursor: pointer; flex: none; }
+.pf .verdict { margin: 18px 0 6px; font-size: 17px; }
+.pf .rule { color: var(--muted); font-size: 13.5px; margin: 0 0 18px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.stat { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.stat b { display: block; font-family: var(--serif); font-size: 24px; line-height: 1.1; }
+.stat span { font-size: 12.5px; color: var(--text-2); display: block; margin-top: 2px; }
+.stat em { font-style: normal; font-size: 11.5px; color: var(--muted); display: block; margin-top: 6px; }
+.pf h4 { margin: 22px 0 6px; font-size: 14px; color: var(--text-2); font-weight: 600; }
+.pf .note { margin-top: 18px; font-size: 13px; color: var(--muted); border-left: 2px solid var(--line); padding-left: 10px; }
+.share { font-size: 13px; color: var(--muted); margin-top: 10px; }
+
+/* method */
+.method { columns: 2 340px; column-gap: 40px; color: var(--text-2); font-size: 15px; }
+.method h3 { font-size: 15px; color: var(--text); margin: 0 0 4px; break-after: avoid; }
+.method p { margin: 0 0 18px; break-inside: avoid; }
+footer { padding: 40px 0 60px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
+
+@media (max-width: 860px) {
+  .scrolly { display: block; }
+  .graphic { height: 56svh; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .graphic svg { height: 54svh; }
+  .steps { padding: 6svh 0 30svh; position: relative; z-index: 1; }
+  .step { min-height: 70svh; align-items: flex-start; }
+  .card { padding: 16px; }
+  .card h2 { font-size: 21px; }
+  .card p { font-size: 15px; }
+  .row, .listhead { grid-template-columns: minmax(0, 1fr) 96px; }
+  .row .c3, .row .c4, .listhead .c3, .listhead .c4 { display: none; }
+  .pf { padding: 18px; }
+  .pf h3 { font-size: 24px; }
+}
+@media (prefers-reduced-motion: reduce) { .scrollcue i { animation: none; } }
+</style>
+</head>
+<body>
+<div id="tip" role="tooltip"></div>
+
+<header class="hero">
+  <canvas id="herocanvas" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <div class="kicker">NIPUN Bharat · ARP supportive supervision · Uttar Pradesh</div>
+    <h1>The form says more about the ARP than the classroom</h1>
+    <p class="dek">Every month, ARPs fill in a classroom-observation form on each school visit. We compared each ARP's forms with forms from DIET mentors and SRGs who visited the same schools. The ARPs fall into distinct, stable styles.</p>
+    <div class="counters">
+      <div class="counter"><b class="num" data-count="visits">0</b><span>classroom observations</span></div>
+      <div class="counter"><b class="num" data-count="arps">0</b><span>ARPs</span></div>
+      <div class="counter"><b class="num" data-count="ind">0</b><span>DIET mentors &amp; SRGs as the yardstick</span></div>
+      <div class="counter"><b class="num" data-count="districts">0</b><span>districts</span></div>
+    </div>
+    <div class="scrollcue"><i></i><span data-bind="range">Scroll</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap scrolly">
+    <div class="graphic"><svg id="viz" role="img" aria-label="Each dot is one ARP"></svg></div>
+    <div class="steps">
+      <div class="step" data-layout="cloud"><div class="card">
+        <h2>One dot, one ARP</h2>
+        <p>These are the <strong data-bind="nTyped"></strong> ARPs with enough visits to profile (60 or more, and 10 or more schools they share with other raters). Together they logged <strong data-bind="arpVisits"></strong> classroom observations between <span data-bind="range"></span>.</p>
+        <p>Hover or tap any dot to see who it is.</p>
+      </div></div>
+
+      <div class="step" data-layout="gen"><div class="card">
+        <h2>Most ARPs score classrooms higher than an outside observer would</h2>
+        <p>For every school, we compared the ARP's ratings with those of every other rater who saw the same school in the same quarter. We measured this against DIET mentors and SRGs, who sit at zero (the dashed line).</p>
+        <p>The average ARP scores classrooms <strong data-bind="genMean"></strong> higher. <strong data-bind="pctAbove"></strong> of ARPs are more generous than the outside observers.</p>
+      </div></div>
+
+      <div class="step" data-layout="gen-names"><div class="card">
+        <h2>And it is a trait, not chance</h2>
+        <p>The spread is wide: from <strong data-bind="p10"></strong> to <strong data-bind="p90"></strong> for the middle 80% of ARPs.</p>
+        <p>Split each ARP's schools into two random halves and score them separately, and the two numbers agree closely (r = <strong data-bind="rel"></strong>). An ARP's generosity follows them from school to school.</p>
+      </div></div>
+
+      <div class="step" data-layout="scatter"><div class="card">
+        <h2>Generous raters also stop telling classrooms apart</h2>
+        <p>Up the side is <strong>answer variety</strong>: how often an ARP's answer to each FLN question changes from one classroom to the next. At 0, every classroom gets the same answers. At 1, answers split 50/50.</p>
+        <p>The two go together. The more generous an ARP, the more their forms are the same "yes" on every visit.</p>
+      </div></div>
+
+      <div class="step" data-layout="types"><div class="card">
+        <h2>Four rating styles</h2>
+        <ul class="typelist">
+          <li><span class="chip" style="--c:var(--allclear)">All-clear</span> <span data-bind="n-allclear"></span>. Near-identical "yes" forms, and 30% or more of their spot assessments report every child Saksham.</li>
+          <li><span class="chip" style="--c:var(--boxtick)">Box-ticking</span> <span data-bind="n-boxtick"></span>. Near-identical "yes" forms (answer variety below 0.35).</li>
+          <li><span class="chip" style="--c:var(--mixed)">In between</span> <span data-bind="n-mixed"></span>. Everyone else: answers vary only somewhat, or vary but score more than 5 points above DIET/SRG.</li>
+          <li><span class="chip" style="--c:var(--discerning)">Discerning</span> <span data-bind="n-discerning"></span>. Answers vary (0.5 or more) and they rate no more than 5 points above DIET/SRG.</li>
+        </ul>
+      </div></div>
+
+      <div class="step" data-layout="dumbbell"><div class="card">
+        <h2>Same schools, different stories</h2>
+        <p>The schools aren't the reason. DIET mentors and SRGs rate the schools of all four groups about the same (<span data-bind="indRange"></span>).</p>
+        <p>The ARPs' own ratings are what differ. Box-ticking ARPs report <strong data-bind="bt-arp"></strong> where outside observers saw <strong data-bind="bt-ind"></strong>. Discerning ARPs are the only group that rates <em>below</em> the outside view.</p>
+      </div></div>
+
+      <div class="step" data-layout="effort"><div class="card">
+        <h2>The 30-visit target can't see any of this</h2>
+        <p>How many visits an ARP logs says nothing about how carefully they observe (r = <strong data-bind="corrVisits"></strong> between visits per month and generosity).</p>
+        <p>If anything, the target favours box-ticking: box-ticking ARPs reached 30 visits in <strong data-bind="tgt-boxtick"></strong> of their months, discerning ARPs in <strong data-bind="tgt-discerning"></strong>.</p>
+      </div></div>
+
+      <div class="step" data-layout="spot"><div class="card">
+        <h2>The generosity carries into student assessments</h2>
+        <p>ARPs also run quick spot assessments of 5 children per school. In <strong data-bind="sp-allclear"></strong> of All-clear ARPs' school-months, every child tested was Saksham. For discerning ARPs it was <strong data-bind="sp-discerning"></strong>.</p>
+        <p>The spot data has no assessor column, so each school-month is credited to the ARP who visited that school most often that month.</p>
+      </div></div>
+
+      <div class="step" data-layout="district"><div class="card">
+        <h2>Style is local</h2>
+        <p>Each row is a district, with its ARPs grouped by style. In <strong data-bind="dTop"></strong>, most ARPs are box-ticking or all-clear. In <strong data-bind="dBottom"></strong>, almost none are.</p>
+        <p>ARPs in the same block resemble each other too. Block explains <strong data-bind="blkVar"></strong> of the differences in answer variety, against <strong data-bind="blkChance"></strong> by chance. That points to how blocks train, check and use the forms, not only to individuals.</p>
+      </div></div>
+
+      <div class="step" data-layout="final"><div class="card">
+        <h2>What this is, and isn't</h2>
+        <p>This is a picture of <strong>how forms are filled in</strong>. It doesn't measure how well an ARP coaches. A box-ticking ARP may still be a good mentor, and a discerning one may not be.</p>
+        <p>But it shows the forms can't be read at face value. A district dashboard that adds up box-ticked forms will show progress that outside observers don't see. Look up any ARP below.</p>
+      </div></div>
+    </div>
+  </div>
+
+  <section class="block" id="explorer">
+    <div class="wrap">
+      <h2>Every ARP</h2>
+      <p class="lead">Search for an ARP or filter by district and style. Open any row for the full profile. Generosity is the number of points by which the ARP's classroom scores exceed those of DIET mentors and SRGs who rated the same schools in the same quarter.</p>
+      <div class="controls">
+        <input id="q" type="search" placeholder="Search name or block" aria-label="Search ARPs">
+        <select id="fd" aria-label="District"><option value="">All districts</option></select>
+        <select id="ft" aria-label="Style"><option value="">All styles</option></select>
+        <select id="fs" aria-label="Sort">
+          <option value="gen-desc">Most generous first</option>
+          <option value="gen-asc">Least generous first</option>
+          <option value="var-desc">Most varied answers first</option>
+          <option value="var-asc">Least varied answers first</option>
+          <option value="visits-desc">Most visits per month first</option>
+          <option value="name">Name A–Z</option>
+        </select>
+      </div>
+      <p class="count" id="count"></p>
+      <div class="list" id="list">
+        <div class="listhead"><div>ARP</div><div>Style</div><div class="c3">Generosity vs DIET/SRG</div><div class="c4">Answer variety</div></div>
+        <div id="rows"></div>
+      </div>
+      <button class="more" id="more" hidden>Show more</button>
+    </div>
+  </section>
+
+  <section class="block" id="method">
+    <div class="wrap">
+      <h2>How this was measured</h2>
+      <div class="method">
+        <h3>Data</h3>
+        <p>Classroom observations from the mentor app in 10 districts (<span data-bind="range"></span>), as used by the ARP visit dashboard. Spot assessments come from the mentor spot-assessment workbooks. Names, districts and blocks are as recorded in the app.</p>
+        <h3>Classroom score</h3>
+        <p>The share of practices marked as observed on a form: 13 questions on the Grade 1–3 FLN forms, 9 on the Grade 4–8 form. On the Grade 4–8 form, "no lesson plan" skips the rest, so those forms are left out of the score and counted separately.</p>
+        <h3>Generosity</h3>
+        <p>A rater-effects model. Each form's score is treated as the school's level that quarter, on that form type, plus the rater's own lean. It is fitted over every school-quarter seen by two or more raters (ARPs, DIET mentors or SRGs), and scaled so DIET mentors and SRGs average zero. Split-half reliability is r = <span data-bind="rel"></span>.</p>
+        <h3>Answer variety</h3>
+        <p>For each of the 13 FLN questions, 4 × p × (1 − p), where p is the share of an ARP's forms answering "yes"; averaged across questions. 0 means the ARP gives the same answer every time; 1 means an even split. Split-half reliability is 0.92.</p>
+        <h3>Styles</h3>
+        <p>Applied in order. All-clear: variety below 0.35, and 30% or more of spot-assessment school-months report every child Saksham. Box-ticking: variety below 0.35. Discerning: variety 0.5 or more and generosity of +5 points or less. In between: everyone else. The thresholds sit at natural breaks in the data. ARPs with fewer than 60 visits or fewer than 10 shared-school comparisons are listed as "too little data".</p>
+        <h3>Limits</h3>
+        <p>DIET mentors and SRGs are a yardstick, not a gold standard. They are self-reporting too and may be stricter than the truth. Ratings in the same quarter may come from different days or classrooms. None of this measures coaching quality or learning gains. The data is rebuilt automatically as new monthly exports arrive.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer><div class="wrap">Built from the <a href="../">ARP visit dashboard</a> data · updated <span data-bind="generated"></span></div></footer>
+
+<dialog id="pf" aria-labelledby="pfname"></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+(async function () {
+  const TYPE_ORDER = ["allclear", "boxtick", "mixed", "discerning"];
+  const COLOR = { allclear: "var(--allclear)", boxtick: "var(--boxtick)", mixed: "var(--mixed)", discerning: "var(--discerning)", few: "var(--few)" };
+  const fmtInt = d3.format(",");
+  const pct = (x) => x == null ? "–" : Math.round(x * 100) + "%";
+  const pts = (x, sign = true) => x == null ? "–" : (sign && x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(Math.round(x * 100)) + " pts";
+  const monthName = (m) => d3.timeFormat("%b %Y")(d3.timeParse("%Y-%m")(m));
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const data = await fetch("data.json").then((r) => r.json());
+  const meta = data.meta;
+  const TYPES = Object.fromEntries(meta.types.map((t) => [t.id, t]));
+  const all = data.arps;
+  const typed = all.filter((d) => d.type !== "few");
+
+  // ---------- numbers bound into the text ----------
+  const q = (arr, p) => d3.quantile(arr.map((d) => d.generosity).sort(d3.ascending), p);
+  const byT = d3.group(typed, (d) => d.type);
+  const meanBy = (t, k) => d3.mean(byT.get(t) || [], (d) => d[k]);
+  const dist = d3.rollups(typed, (v) => ({ n: v.length, gen: d3.mean(v, (d) => d.type === "allclear" || d.type === "boxtick" ? 1 : 0) }), (d) => d.district)
+    .sort((a, b) => b[1].gen - a[1].gen);
+  const bt = data.byType;
+  const indVals = TYPE_ORDER.map((t) => bt[t] && bt[t].ind).filter((x) => x != null);
+  const d0 = d3.timeParse("%Y-%m-%d");
+  const range = `${d3.timeFormat("%B %Y")(d0(meta.dateFrom))} and ${d3.timeFormat("%B %Y")(d0(meta.dateTo))}`;
+  const binds = {
+    range, nTyped: fmtInt(typed.length), arpVisits: fmtInt(meta.arpVisits),
+    genMean: pts(meta.arpGenerosityMean), pctAbove: pct(d3.mean(typed, (d) => d.generosity > 0 ? 1 : 0)),
+    p10: pts(q(typed, 0.1)), p90: pts(q(typed, 0.9)), rel: meta.reliability.generosity.toFixed(2),
+    indRange: `${pct(d3.min(indVals))}–${pct(d3.max(indVals))} of practices observed`,
+    "bt-arp": pct(bt.boxtick && bt.boxtick.arp), "bt-ind": pct(bt.boxtick && bt.boxtick.ind),
+    corrVisits: meta.corr.generosity_visits.toFixed(2),
+    "tgt-boxtick": pct(meanBy("boxtick", "targetShare")), "tgt-discerning": pct(meanBy("discerning", "targetShare")),
+    "sp-allclear": pct(meanBy("allclear", "spotAllSaksham")), "sp-discerning": pct(meanBy("discerning", "spotAllSaksham")),
+    dTop: dist.slice(0, 2).map((d) => `${d[0]} (${pct(d[1].gen)})`).join(" and "),
+    dBottom: dist.slice(-2).reverse().map((d) => `${d[0]} (${pct(d[1].gen)})`).join(" and "),
+    blkVar: pct(meta.byBlock.variety), blkChance: pct(meta.byBlock.chance),
+    generated: d3.timeFormat("%d %b %Y")(new Date(meta.generatedAt)),
+  };
+  TYPE_ORDER.forEach((t) => (binds["n-" + t] = `${(byT.get(t) || []).length} ARPs`));
+  document.querySelectorAll("[data-bind]").forEach((el) => { if (binds[el.dataset.bind] != null) el.textContent = binds[el.dataset.bind]; });
+
+  // ---------- hero ----------
+  const counts = { visits: meta.visits, arps: all.length, ind: meta.independents, districts: meta.districts.length };
+  document.querySelectorAll("[data-count]").forEach((el) => {
+    const to = counts[el.dataset.count];
+    if (reduce) { el.textContent = fmtInt(to); return; }
+    d3.select(el).transition().duration(1800).ease(d3.easeCubicOut)
+      .tween("t", () => { const i = d3.interpolateNumber(0, to); return (t) => (el.textContent = fmtInt(Math.round(i(t)))); });
+  });
+  heroCanvas();
+
+  // ---------- tooltip ----------
+  const tip = document.getElementById("tip");
+  function showTip(ev, d) {
+    tip.innerHTML = `<b>${d.name}</b><span class="m">${d.block}, ${d.district}</span><br>` +
+      `<span class="chip" style="--c:${COLOR[d.type]}">${TYPES[d.type].label}</span><br>` +
+      `Generosity ${pts(d.generosity)} · variety ${d.variety == null ? "–" : d.variety.toFixed(2)}<br>` +
+      `<span class="m">${d.visitsPerMonth} visits/month · tap for profile</span>`;
+    const x = Math.min(ev.clientX + 14, innerWidth - 270), y = Math.min(ev.clientY + 14, innerHeight - 120);
+    tip.style.left = x + "px"; tip.style.top = y + "px"; tip.style.opacity = 1;
+  }
+  const hideTip = () => (tip.style.opacity = 0);
+
+  // ---------- story graphic ----------
+  const svg = d3.select("#viz");
+  const gGrid = svg.append("g"), gAx = svg.append("g"), gOver = svg.append("g"), gDots = svg.append("g"), gLbl = svg.append("g");
+  let W, H, R, M, layouts = {}, current = "cloud";
+  const nodes = typed.map((d) => ({ d, id: d.id }));
+  const dots = gDots.selectAll("circle").data(nodes, (n) => n.id).join("circle")
+    .attr("class", "dot").attr("r", 3).attr("fill", "var(--mixed)")
+    .on("pointermove", (ev, n) => showTip(ev, n.d)).on("pointerleave", hideTip)
+    .on("click", (ev, n) => openProfile(n.d));
+
+  function size() {
+    const r = svg.node().getBoundingClientRect();
+    W = r.width; H = r.height;
+    R = W < 520 ? 2.6 : W < 800 ? 3.3 : 4.2;
+    M = { t: W < 520 ? 50 : 30, r: 16, b: 48, l: W < 520 ? 40 : 56 };
+    layouts = {};
+  }
+  const genExt = d3.extent(typed, (d) => d.generosity);
+  const xGen = () => d3.scaleLinear().domain([Math.min(-0.3, genExt[0]), Math.max(0.4, genExt[1])]).range([M.l, W - M.r]).clamp(true);
+
+  const yGen = () => d3.scaleLinear().domain([Math.min(-0.3, genExt[0]), Math.max(0.4, genExt[1])]).range([H - M.b, M.t + 20]).clamp(true);
+
+  function swarm(xf, yc, strength = 0.06, ticks = 220) {
+    const sim = nodes.map((n) => ({ id: n.id, x: xf(n.d), y: yc + (Math.random() - 0.5) * 10, tx: xf(n.d) }));
+    d3.forceSimulation(sim).force("x", d3.forceX((s) => s.tx).strength(1)).force("y", d3.forceY(yc).strength(strength))
+      .force("c", d3.forceCollide(R + 0.7)).stop().tick(ticks);
+    return Object.fromEntries(sim.map((s) => [s.id, [s.x, Math.max(M.t, Math.min(H - M.b, s.y))]]));
+  }
+  function getLayout(name) {
+    if (layouts[name]) return layouts[name];
+    let L;
+    if (name === "cloud" || name === "final") {
+      const cx = W / 2, cy = H / 2, k = Math.min(W, H) / Math.sqrt(nodes.length) / 2.2;
+      const order = name === "final" ? nodes.slice().sort((a, b) => TYPE_ORDER.indexOf(a.d.type) - TYPE_ORDER.indexOf(b.d.type)) : nodes;
+      L = Object.fromEntries(order.map((n, i) => { const r = k * Math.sqrt(i + 0.5), a = i * 2.39996; return [n.id, [cx + r * Math.cos(a), cy + r * Math.sin(a)]]; }));
+    } else if (name === "gen" || name === "gen-names") {
+      L = layouts.gen || swarm((d) => xGen()(d.generosity), (H - M.b + M.t) / 2, 0.05);
+    } else if (name === "scatter") {
+      const x = xGen(), y = d3.scaleLinear().domain([0, 1]).range([H - M.b, M.t]);
+      L = Object.fromEntries(nodes.map((n) => [n.id, [x(n.d.generosity), y(n.d.variety)]]));
+    } else if (name === "types") {
+      const cols = W < 640 ? 2 : 4, rows = Math.ceil(4 / cols);
+      const cx = (i) => M.l + ((i % cols) + 0.5) * (W - M.l - M.r) / cols;
+      const cy = (i) => M.t + 30 + (Math.floor(i / cols) + 0.5) * (H - M.t - M.b - 30) / rows;
+      const rr = cols === 2 ? Math.min(R, 2.2) : R;  // smaller dots when the clusters stack two by two
+      const sim = nodes.map((n) => { const i = TYPE_ORDER.indexOf(n.d.type); return { id: n.id, i, x: cx(i) + Math.random() * 4, y: cy(i) + Math.random() * 4 }; });
+      d3.forceSimulation(sim).force("x", d3.forceX((s) => cx(s.i)).strength(0.15)).force("y", d3.forceY((s) => cy(s.i)).strength(0.15))
+        .force("c", d3.forceCollide(rr + 0.7)).stop().tick(260);
+      L = Object.fromEntries(sim.map((s) => [s.id, [s.x, s.y]]));
+      L._centers = TYPE_ORDER.map((t, i) => [t, cx(i), cy(i)]);
+      L._r = rr;
+    } else if (name === "dumbbell") {
+      const T = getLayout("types");
+      L = Object.fromEntries(nodes.map((n) => [n.id, T[n.id]]));
+      L._r = T._r;
+    } else if (name === "effort") {
+      const x = d3.scaleLinear().domain([8, 32]).range([M.l, W - M.r]).clamp(true), y = yGen();
+      L = Object.fromEntries(nodes.map((n) => [n.id, [x(n.d.visitsPerMonth), y(n.d.generosity)]]));
+    } else if (name === "spot") {
+      const x = xGen(), y = d3.scaleLinear().domain([0, 0.7]).range([H - M.b, M.t]).clamp(true);
+      L = Object.fromEntries(nodes.map((n) => [n.id, [x(n.d.generosity), y(n.d.spotAllSaksham || 0)]]));
+    } else if (name === "district") {
+      const labW = W < 520 ? 92 : 110, s = 2 * R + 2, cols = Math.max(10, Math.floor((W - M.r - labW) / s));
+      const ds = d3.groups(nodes, (n) => n.d.district).sort((a, b) =>
+        d3.mean(b[1], (n) => n.d.type === "allclear" || n.d.type === "boxtick") - d3.mean(a[1], (n) => n.d.type === "allclear" || n.d.type === "boxtick"));
+      const rowsNeeded = ds.map(([, v]) => Math.ceil(v.length / cols));
+      const unit = Math.min(s, (H - M.t - 40 - 14 * ds.length) / d3.sum(rowsNeeded));
+      const gap = Math.min(40, Math.max(14, (H - M.t - 40 - unit * d3.sum(rowsNeeded)) / ds.length));  // spread rows over the height
+      let y = M.t + 10; L = {}; L._rows = [];
+      ds.forEach(([name, v], k) => {
+        v.sort((a, b) => TYPE_ORDER.indexOf(a.d.type) - TYPE_ORDER.indexOf(b.d.type) || b.d.generosity - a.d.generosity);
+        v.forEach((n, i) => (L[n.id] = [labW + (i % cols) * unit + unit / 2, y + Math.floor(i / cols) * unit + unit / 2]));
+        L._rows.push([name, y + unit / 2]);
+        y += rowsNeeded[k] * unit + gap;
+      });
+      L._unit = unit;
+    }
+    return (layouts[name] = L);
+  }
+
+  function axisX(x, label, ticks, fmt) {
+    gAx.append("g").attr("class", "axis").attr("transform", `translate(0,${H - M.b})`).call(d3.axisBottom(x).ticks(ticks).tickFormat(fmt).tickSizeOuter(0));
+    gAx.append("text").attr("class", "lbl").attr("x", (M.l + W - M.r) / 2).attr("y", H - 10).attr("text-anchor", "middle").text(label);
+  }
+  function axisY(y, label, fmt) {
+    gAx.append("g").attr("class", "axis").attr("transform", `translate(${M.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(fmt).tickSizeOuter(0));
+    gAx.append("text").attr("class", "lbl").attr("transform", `translate(12,${(M.t + H - M.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text(label);
+    gGrid.selectAll(null).data(y.ticks(5)).join("line").attr("class", "gridline").attr("x1", M.l).attr("x2", W - M.r).attr("y1", y).attr("y2", y);
+  }
+  const genFmt = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(Math.round(v * 100));
+  function zeroLine(x, label) {
+    gOver.append("line").attr("class", "ref").attr("x1", x(0)).attr("x2", x(0)).attr("y1", M.t - 8).attr("y2", H - M.b);
+    gOver.append("text").attr("class", "lbl-strong").attr("x", x(0) + 6).attr("y", M.t + 4).text(label);
+  }
+
+  function decorate(name, L) {
+    [gGrid, gAx, gOver, gLbl].forEach((g) => g.selectAll("*").remove());
+    const fade = (g) => g.attr("opacity", 0).transition().delay(reduce ? 0 : 450).duration(reduce ? 0 : 500).attr("opacity", 1);
+    if (name === "gen" || name === "gen-names") {
+      const x = xGen();
+      axisX(x, W < 520 ? "Points vs DIET/SRG, same schools" : "Points above (+) or below (−) DIET mentors and SRGs in the same schools", 7, genFmt);
+      zeroLine(x, "DIET/SRG level");
+      const m = meta.arpGenerosityMean;
+      gOver.append("line").attr("x1", x(m)).attr("x2", x(m)).attr("y1", M.t + 18).attr("y2", H - M.b).attr("stroke", "var(--boxtick)").attr("stroke-width", 2);
+      gOver.append("text").attr("class", "lbl-strong").attr("x", x(m) + 6).attr("y", M.t + 24).attr("fill", "var(--boxtick)").style("fill", "var(--boxtick)").text(`ARP average ${pts(m)}`);
+      if (name === "gen-names") {
+        const s = typed.slice().sort((a, b) => b.generosity - a.generosity);
+        // The most and least generous ARPs, labelled in a column at each end of the axis.
+        const k = W < 520 ? 2 : 3;
+        const ends = [[s.slice(-k), "start", M.l], [s.slice(0, k), "end", W - M.r]];
+        // Least generous labelled near the bottom, most generous near the top, so the columns never share a line.
+        ends.forEach(([group, anchor, lx], e) => group.forEach((d, i) => {
+          const p = L[d.id], ly = e === 0 ? H - M.b - 16 - i * 18 : M.t + 50 + i * 18;
+          gLbl.append("line").attr("x1", p[0]).attr("y1", p[1]).attr("x2", lx).attr("y2", ly + 4).attr("stroke", "var(--text-2)").attr("opacity", 0.6);
+          gLbl.append("text").attr("class", "namelbl").attr("x", lx).attr("y", ly).attr("text-anchor", anchor).text(`${d.name} ${pts(d.generosity)}`);
+        }));
+      }
+    } else if (name === "scatter") {
+      const x = xGen(), y = d3.scaleLinear().domain([0, 1]).range([H - M.b, M.t]);
+      axisX(x, "Generosity vs DIET/SRG (points)", 7, genFmt); axisY(y, "Answer variety (0 = same answers every visit)", d3.format(".1f"));
+      zeroLine(x, "DIET/SRG");
+      const th = meta.thresholds;
+      gOver.append("rect").attr("x", M.l).attr("width", W - M.l - M.r).attr("y", y(th.lowVariety)).attr("height", y(0) - y(th.lowVariety)).attr("fill", "var(--boxtick)").attr("opacity", 0.07);
+      gOver.append("text").attr("class", "lbl").attr("x", W - M.r - 4).attr("y", y(0) - 8).attr("text-anchor", "end").text("same answers every visit");
+      gOver.append("rect").attr("x", M.l).attr("width", x(th.strictGenerosity) - M.l).attr("y", M.t).attr("height", y(th.highVariety) - M.t).attr("fill", "var(--discerning)").attr("opacity", 0.08);
+      gOver.append("text").attr("class", "lbl").attr("x", M.l + 6).attr("y", M.t + 14).text("varied and not inflated");
+    } else if (name === "types") {
+      L._centers.forEach(([t, cx, cy]) => {
+        const n = (byT.get(t) || []).length, rad = Math.sqrt(n) * (L._r + 0.7) * 1.05;
+        gLbl.append("text").attr("class", "lbl-big").attr("x", cx).attr("y", cy - rad - 26).attr("text-anchor", "middle").text(n);
+        gLbl.append("text").attr("class", "lbl-strong").attr("x", cx).attr("y", cy - rad - 8).attr("text-anchor", "middle").text(TYPES[t].label);
+      });
+    } else if (name === "dumbbell") {
+      const x = d3.scaleLinear().domain([0.7, 1]).range([M.l + 70, W - M.r - 20]);
+      const y = d3.scalePoint().domain(TYPE_ORDER).range([M.t + 60, H - M.b - 30]).padding(0.4);
+      axisX(x, W < 520 ? "Practices marked observed, same schools" : "Share of practices marked as observed, same schools and quarter", 4, d3.format(".0%"));
+      gOver.append("text").attr("class", "lbl").attr("x", M.l).attr("y", M.t + 14).text("○ DIET mentors & SRGs   ● the ARP");
+      TYPE_ORDER.forEach((t) => {
+        const b = bt[t]; if (!b) return; const yy = y(t);
+        gOver.append("text").attr("class", "lbl-strong").attr("x", M.l + 62).attr("y", yy + 4).attr("text-anchor", "end").text(TYPES[t].label);
+        gOver.append("line").attr("x1", x(b.ind)).attr("x2", x(b.ind)).attr("y1", yy).attr("y2", yy).attr("stroke", COLOR[t]).attr("stroke-width", 3)
+          .transition().delay(reduce ? 0 : 600).duration(reduce ? 0 : 900).attr("x2", x(b.arp));
+        gOver.append("circle").attr("cx", x(b.ind)).attr("cy", yy).attr("r", 8).attr("fill", "var(--bg)").attr("stroke", "var(--ind)").attr("stroke-width", 2);
+        gOver.append("circle").attr("cx", x(b.ind)).attr("cy", yy).attr("r", 8).attr("fill", COLOR[t]).attr("stroke", "var(--bg)").attr("stroke-width", 2)
+          .transition().delay(reduce ? 0 : 600).duration(reduce ? 0 : 900).attr("cx", x(b.arp));
+        const right = b.arp > b.ind;
+        gOver.append("text").attr("class", "lbl").attr("x", x(b.ind) + (right ? -14 : 14)).attr("y", yy - 14).attr("text-anchor", right ? "end" : "start").text(pct(b.ind));
+        gOver.append("text").attr("class", "lbl-strong").attr("x", x(b.arp) + (right ? 14 : -14)).attr("y", yy - 14).attr("text-anchor", right ? "start" : "end").text(pct(b.arp))
+          .attr("opacity", 0).transition().delay(reduce ? 0 : 1300).attr("opacity", 1);
+      });
+    } else if (name === "effort") {
+      const x = d3.scaleLinear().domain([8, 32]).range([M.l, W - M.r]), y = yGen();
+      axisX(x, "Average visits per month", 6, d3.format("d")); axisY(y, "Generosity vs DIET/SRG (points)", genFmt);
+      gOver.append("line").attr("class", "ref").attr("x1", M.l).attr("x2", W - M.r).attr("y1", y(0)).attr("y2", y(0));
+      gOver.append("line").attr("class", "ref").attr("x1", x(30)).attr("x2", x(30)).attr("y1", M.t).attr("y2", H - M.b);
+      gOver.append("text").attr("class", "lbl-strong").attr("x", x(30) - 6).attr("y", M.t + 4).attr("text-anchor", "end").text("target 30");
+    } else if (name === "spot") {
+      const x = xGen(), y = d3.scaleLinear().domain([0, 0.7]).range([H - M.b, M.t]);
+      axisX(x, "Generosity vs DIET/SRG (points)", 7, genFmt); axisY(y, "Spot tests with every child Saksham", d3.format(".0%"));
+      zeroLine(x, "DIET/SRG");
+    } else if (name === "district") {
+      L._rows.forEach(([nm, yy]) => gLbl.append("text").attr("class", "lbl-strong").attr("x", 0).attr("y", yy + 4).text(nm));
+    } else if (name === "final") {
+      gLbl.append("text").attr("class", "lbl").attr("x", W / 2).attr("y", H - 8).attr("text-anchor", "middle").text("Tap any dot for a profile, or search below");
+    }
+    // legend for coloured views
+    if (["scatter", "effort", "spot", "district", "final"].includes(name)) {
+      const lg = gAx.append("g").attr("transform", `translate(${M.l},${name === "district" ? H - 6 : M.t - 18})`);
+      // Two items per line when four don't fit.
+      const items = TYPE_ORDER.map((t) => {
+        const g = lg.append("g");
+        g.append("circle").attr("r", 5).attr("cy", -4).attr("fill", COLOR[t]);
+        const tx = g.append("text").attr("class", "lbl").attr("x", 9).attr("y", 0).text(TYPES[t].label);
+        return [g, 18 + tx.node().getComputedTextLength() + 12];
+      });
+      const wrap = d3.sum(items, (i) => i[1]) > W - M.l - M.r;
+      let xo = 0, yo = 0, widest = 0;
+      items.forEach(([g, w], i) => {
+        if (wrap && i === 2) { xo = 0; yo = 16; }
+        g.attr("transform", `translate(${xo},${yo})`); xo += w; widest = Math.max(widest, xo);
+      });
+      if (wrap && name !== "district") lg.attr("transform", `translate(${M.l},${M.t - 30})`);
+      if (name === "district") lg.attr("transform", `translate(${W - M.r - widest},${H - 6 - yo})`);
+    }
+    [gGrid, gAx, gOver, gLbl].forEach(fade);
+  }
+
+  function render(name, instant) {
+    current = name;
+    const L = getLayout(name);
+    const colored = !["cloud", "gen", "gen-names"].includes(name);
+    const t = d3.transition().duration(instant || reduce ? 0 : 1100).ease(d3.easeCubicInOut);
+    const r = name === "district" ? Math.min(R, L._unit / 2 - 0.6) : L._r || R;
+    dots.transition(t).delay((n, i) => (instant || reduce ? 0 : (i % 40) * 6))
+      .attr("cx", (n) => L[n.id][0]).attr("cy", (n) => L[n.id][1]).attr("r", r)
+      .attr("fill", (n) => colored ? COLOR[n.d.type] : name === "cloud" ? "var(--text-2)" : n.d.generosity > 0 ? "var(--boxtick)" : "var(--discerning)")
+      .attr("opacity", name === "dumbbell" ? 0 : 1);
+    decorate(name, L);
+  }
+
+  size(); render("cloud", true);
+  addEventListener("resize", debounce(() => { size(); render(current, true); }, 200));
+
+  const steps = [...document.querySelectorAll(".step")];
+  const io = new IntersectionObserver((es) => es.forEach((e) => {
+    if (!e.isIntersecting) return;
+    steps.forEach((s) => s.classList.toggle("active", s === e.target));
+    const name = e.target.dataset.layout;
+    if (name !== current) render(name);
+  }), { rootMargin: matchMedia("(max-width: 860px)").matches ? "-62% 0px -25% 0px" : "-45% 0px -45% 0px" });
+  steps.forEach((s) => io.observe(s));
+
+  // ---------- explorer ----------
+  const fd = document.getElementById("fd"), ft = document.getElementById("ft"), fs = document.getElementById("fs"), qi = document.getElementById("q");
+  meta.districts.forEach((d) => fd.append(new Option(d, d)));
+  [...TYPE_ORDER, "few"].forEach((t) => ft.append(new Option(TYPES[t].label, t)));
+  let shown = 60;
+  const gx = d3.scaleLinear().domain([-0.4, 0.5]).range([0, 100]).clamp(true);
+  function rowsFor() {
+    const s = qi.value.trim().toLowerCase();
+    let r = all.filter((d) => (!fd.value || d.district === fd.value) && (!ft.value || d.type === ft.value) &&
+      (!s || d.name.toLowerCase().includes(s) || (d.block || "").toLowerCase().includes(s)));
+    const nz = (v, dflt) => v == null ? dflt : v;
+    const sorts = {
+      "gen-desc": (a, b) => nz(b.generosity, -9) - nz(a.generosity, -9), "gen-asc": (a, b) => nz(a.generosity, 9) - nz(b.generosity, 9),
+      "var-desc": (a, b) => nz(b.variety, -1) - nz(a.variety, -1), "var-asc": (a, b) => nz(a.variety, 9) - nz(b.variety, 9),
+      "visits-desc": (a, b) => b.visitsPerMonth - a.visitsPerMonth, name: (a, b) => a.name.localeCompare(b.name),
+    };
+    // ARPs with too little data go last: their numbers rest on a handful of comparisons.
+    return r.sort((a, b) => fs.value !== "name" && (a.type === "few") - (b.type === "few") || sorts[fs.value](a, b));
+  }
+  function drawList() {
+    const r = rowsFor();
+    document.getElementById("count").textContent = `${r.length} ARPs`;
+    const host = document.getElementById("rows");
+    host.innerHTML = r.slice(0, shown).map((d) => {
+      const g = d.generosity;
+      const gbar = g == null ? "" : `<i style="left:${Math.min(gx(0), gx(g))}%;width:${Math.abs(gx(g) - gx(0))}%;background:${g > 0 ? "var(--boxtick)" : "var(--discerning)"}"></i><span class="zero" style="left:${gx(0)}%"></span>`;
+      const vbar = d.variety == null ? "" : `<i style="left:0;width:${d.variety * 100}%;background:var(--text-2)"></i>`;
+      return `<div class="row" tabindex="0" data-id="${d.id}">
+        <div><div class="nm">${d.name}</div><div class="sub">${d.block}, ${d.district} · ${d.visitsPerMonth} visits/mo</div></div>
+        <div class="t"><span class="chip" style="--c:${COLOR[d.type]}">${TYPES[d.type].label}</span></div>
+        <div class="c3"><div class="barlbl"><span>${pts(g)}</span><span>${d.sharedN} comparisons</span></div><div class="bar">${gbar}</div></div>
+        <div class="c4"><div class="barlbl"><span>${d.variety == null ? "–" : d.variety.toFixed(2)}</span></div><div class="bar">${vbar}</div></div>
+      </div>`;
+    }).join("");
+    document.getElementById("more").hidden = r.length <= shown;
+  }
+  [qi, fd, ft, fs].forEach((el) => el.addEventListener("input", () => { shown = 60; drawList(); }));
+  document.getElementById("more").addEventListener("click", () => { shown += 120; drawList(); });
+  const rowsEl = document.getElementById("rows");
+  const byId = new Map(all.map((d) => [d.id, d]));
+  rowsEl.addEventListener("click", (e) => { const r = e.target.closest(".row"); if (r) openProfile(byId.get(r.dataset.id)); });
+  rowsEl.addEventListener("keydown", (e) => { const r = e.target.closest(".row"); if (r && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openProfile(byId.get(r.dataset.id)); } });
+  drawList();
+
+  // ---------- profile ----------
+  const dlg = document.getElementById("pf");
+  const rank = (k, v) => { if (v == null) return null; const vals = typed.map((d) => d[k]).filter((x) => x != null); return Math.round(100 * d3.mean(vals, (x) => x <= v ? 1 : 0)); };
+  function verdict(d) {
+    const g = d.generosity, s = [];
+    if (g != null) s.push(`${d.name.split(" ")[0]} scores classrooms <strong>${Math.abs(Math.round(g * 100))} points ${g >= 0 ? "higher" : "lower"}</strong> than DIET mentors and SRGs who saw the same schools in the same quarter (${d.sharedN} comparisons).`);
+    if (d.type === "few") s.push(`With this little data, treat these numbers as unreliable.`);
+    if (d.flnAllYes != null) s.push(`${pct(d.flnAllYes)} of their FLN forms mark every practice as observed.`);
+    return s.join(" ");
+  }
+  function openProfile(d) {
+    if (!d) return;
+    hideTip();
+    const st = (val, label, k, raw) => {
+      const p = k ? rank(k, raw) : null;
+      return `<div class="stat"><b class="num">${val}</b><span>${label}</span>${p == null ? "" : `<em>higher than ${p}% of ARPs</em>`}</div>`;
+    };
+    dlg.innerHTML = `<div class="pf">
+      <header><div><h3 id="pfname">${d.name}</h3><div class="where">${d.block} block, ${d.district} · ${d.months} months · ${fmtInt(d.visits)} visits</div></div>
+      <button class="close" aria-label="Close">×</button></header>
+      <p class="verdict"><span class="chip" style="--c:${COLOR[d.type]}">${TYPES[d.type].label}</span> &nbsp;${verdict(d)}</p>
+      <p class="rule">${TYPES[d.type].label}: ${TYPES[d.type].rule}.</p>
+      <div class="stats">
+        ${st(pts(d.generosity), "generosity vs DIET/SRG", "generosity", d.generosity)}
+        ${st(d.variety == null ? "–" : d.variety.toFixed(2), "answer variety (0–1)", "variety", d.variety)}
+        ${st(pct(d.flnAllYes), "FLN forms all “yes”", "flnAllYes", d.flnAllYes)}
+        ${st(pct(d.gAllYes), "Gr 4–8 forms all “yes”", "gAllYes", d.gAllYes)}
+        ${st(pct(d.noPlan), "Gr 4–8 visits recording “no lesson plan”", "noPlan", d.noPlan)}
+        ${st(pct(d.spotAllSaksham), `spot tests with every child Saksham (${d.spotN} school-months)`, "spotAllSaksham", d.spotAllSaksham)}
+        ${st(d.visitsPerMonth, "visits per active month", "visitsPerMonth", d.visitsPerMonth)}
+        ${st(pct(d.targetShare), "months at the 30-visit target", "targetShare", d.targetShare)}
+        ${st(fmtInt(d.schools), "different schools visited", "schools", d.schools)}
+        ${st(pct(d.adoptedShare), "visits to their adopted schools", "adoptedShare", d.adoptedShare)}
+        ${st(d.minutes == null ? "–" : d.minutes + " min", "median visit length", null)}
+        ${st(pct(d.attendance), "student attendance they recorded", "attendance", d.attendance)}
+      </div>
+      <h4>Visits per month</h4><svg class="spark" id="spv" width="100%" height="120"></svg>
+      <h4>Share of FLN forms marked all “yes”, by month</h4><svg class="spark" id="spa" width="100%" height="120"></svg>
+      <p class="note">This describes how the forms were filled in. It doesn't measure coaching quality or student learning.</p>
+      <p class="share">Link to this profile: <a href="#arp=${encodeURIComponent(d.id)}">#arp=${encodeURIComponent(d.id)}</a></p>
+    </div>`;
+    dlg.querySelector(".close").onclick = () => dlg.close();
+    dlg.showModal();
+    history.replaceState(null, "", "#arp=" + encodeURIComponent(d.id));
+    spark(d);
+  }
+  dlg.addEventListener("close", () => history.replaceState(null, "", location.pathname));
+  dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+
+  function spark(d) {
+    const months = d.monthly.map((m) => m[0]);
+    const draw = (id, key, max, fmt, target) => {
+      const s = d3.select("#" + id), w = s.node().getBoundingClientRect().width, h = 120, m = { t: 10, r: 8, b: 22, l: 42 };
+      const x = d3.scaleBand().domain(months).range([m.l, w - m.r]).padding(0.25), y = d3.scaleLinear().domain([0, max]).range([h - m.b, m.t]);
+      s.append("g").attr("class", "axis").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(3).tickFormat(fmt).tickSizeOuter(0));
+      const every = Math.ceil(months.length / (w < 500 ? 4 : 8));
+      s.append("g").attr("class", "axis").attr("transform", `translate(0,${h - m.b})`)
+        .call(d3.axisBottom(x).tickValues(months.filter((_, i) => i % every === 0)).tickFormat(monthName).tickSizeOuter(0));
+      const vals = d.monthly.filter((r) => r[key] != null);
+      s.selectAll(null).data(vals).join("rect").attr("x", (r) => x(r[0])).attr("width", x.bandwidth()).attr("rx", 2)
+        .attr("y", h - m.b).attr("height", 0).attr("fill", key === 1 ? "var(--text-2)" : COLOR[d.type])
+        .append("title").text((r) => `${monthName(r[0])}: ${key === 1 ? r[1] + " visits" : pct(r[2])}`);
+      s.selectAll("rect").transition().duration(reduce ? 0 : 700).delay((_, i) => i * 25).attr("y", (r) => y(r[key])).attr("height", (r) => y(0) - y(r[key]));
+      if (target) {
+        s.append("line").attr("class", "ref").attr("x1", m.l).attr("x2", w - m.r).attr("y1", y(target)).attr("y2", y(target));
+        s.append("text").attr("class", "lbl").attr("x", w - m.r).attr("y", y(target) - 4).attr("text-anchor", "end").text("target 30");
+      }
+    };
+    draw("spv", 1, Math.max(32, d3.max(d.monthly, (r) => r[1])), d3.format("d"), 30);
+    draw("spa", 2, 1, d3.format(".0%"));
+  }
+  const fromHash = () => { const m = location.hash.match(/^#arp=(.+)$/); if (m) openProfile(byId.get(decodeURIComponent(m[1]))); };
+  fromHash();
+
+  // ---------- helpers ----------
+  function debounce(f, ms) { let t; return () => { clearTimeout(t); t = setTimeout(f, ms); }; }
+  function heroCanvas() {
+    const c = document.getElementById("herocanvas"), ctx = c.getContext("2d");
+    const dpr = devicePixelRatio || 1;
+    const fit = () => { c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr; };
+    fit(); addEventListener("resize", fit);
+    const pts_ = typed.map((d) => ({ d, x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.0004, vy: (Math.random() - 0.5) * 0.0004 }));
+    const col = { allclear: "#f0534f", boxtick: "#f2b134", mixed: "#8f8d86", discerning: "#4c9bf0" };
+    function frame() {
+      ctx.clearRect(0, 0, c.width, c.height);
+      for (const p of pts_) {
+        if (!reduce) { p.x = (p.x + p.vx + 1) % 1; p.y = (p.y + p.vy + 1) % 1; }
+        ctx.globalAlpha = 0.5; ctx.fillStyle = col[p.d.type];
+        ctx.beginPath(); ctx.arc(p.x * c.width, p.y * c.height, 2.2 * dpr, 0, 6.283); ctx.fill();
+      }
+      if (!reduce && c.getBoundingClientRect().bottom > 0) requestAnimationFrame(frame); else if (!reduce) setTimeout(() => requestAnimationFrame(frame), 500);
+    }
+    frame();
+  }
+})();
+</script>
+</body>
+</html>
