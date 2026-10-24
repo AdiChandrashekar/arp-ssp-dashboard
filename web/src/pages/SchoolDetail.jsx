@@ -86,7 +86,7 @@ export default function SchoolDetail({ data, filters, setFilters, nav, id }) {
               onSelect={(mo) => data.months.includes(mo) && setFilters({ ptype: 'month', pval: mo })}
             />
           ) : (
-            <Empty>No spot assessments recorded for this school{filters.grade ? ' in this grade (classes are recorded from Aug 2026)' : ''}.</Empty>
+            <Empty>No spot assessments recorded for this school{filters.grade ? ' in this grade' : ''}.</Empty>
           )}
         </Card>
         <Card className="card-spot" title="Spot assessment log" sub="One row per month (per class from Aug 2026) · who visited the school that month">

@@ -353,13 +353,13 @@ export const SPOT_LEVELS = [
 ]
 
 // Same filters as visits. Spot rows have no subject; the class is known only
-// from Aug 2026, so a grade filter keeps just the rows recorded with a class.
+// from Aug 2026, so under a grade filter earlier rows stay in as the whole school's result.
 export function applySpotFilters(spot, filters, { period = true } = {}) {
   return spot.filter((r) => {
     if (period && filters.ptype !== 'all' && periodKey(r.month, filters.ptype) !== filters.pval) return false
     if (filters.block && r.block !== filters.block) return false
     if (filters.stype && r.stype !== filters.stype) return false
-    if (filters.grade && (r.cls == null || !gradeMatches(r.cls, filters.grade))) return false
+    if (filters.grade && r.cls != null && !gradeMatches(r.cls, filters.grade)) return false
     if (filters.ssp && !r.ssp) return false
     return true
   })

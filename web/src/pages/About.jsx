@@ -96,8 +96,8 @@ export default function About({ data }) {
         </dd>
         <dt>Filters</dt>
         <dd>
-          Period, block, school type and the ARP Focus Schools switch apply as for visits. Spot results have no subject. A grade filter keeps only results
-          recorded with a class, so it shows nothing before August 2026.
+          Period, block, school type and the ARP Focus Schools switch apply as for visits. Spot results have no subject. Classes are recorded from August 2026,
+          so under a grade filter earlier months show the whole school's result.
         </dd>
         <dt>Data notes</dt>
         <dd>

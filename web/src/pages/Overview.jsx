@@ -157,7 +157,7 @@ export default function Overview({ data, filters, setFilters, nav }) {
           value={(mo) => (m.spotByMonth.has(mo) ? spotSummary(m.spotByMonth.get(mo)) : null)}
           selectedKey={filters.ptype === 'month' ? filters.pval : null}
           onSelect={(mo) => data.months.includes(mo) && setFilters({ ptype: 'month', pval: mo })}
-          note={filters.grade ? 'Grade filter: only spot assessments recorded with a class (Aug 2026 on) are shown.' : null}
+          note={filters.grade ? 'Grade filter: classes are recorded from Aug 2026; earlier months show the whole school.' : null}
         />
       </Card>
 
