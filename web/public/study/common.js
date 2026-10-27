@@ -71,6 +71,14 @@ window.S = (function () {
       desc: "Share of the ARP's school-months where more than the usual 5 children were tested." },
     { id: "spotN", label: "Spot-assessment school-months", short: "Spot months", fmt: (x) => (x == null ? "–" : fmtInt(x)), domain: [0, 250],
       desc: "School-months of spot assessments credited to the ARP: the ARP who visited the school most that month." },
+    { id: "returnIdent", label: "Return forms identical to the last one", short: "Same on return", fmt: pct, domain: [0, 1],
+      desc: "Coming back to a class (school, grade and subject) in a later month: how often every FLN answer matches the ARP's earlier form for it. Needs 15 return visits." },
+    { id: "otherIdent", label: "Forms identical to one from another school", short: "Same elsewhere", fmt: pct, domain: [0, 1],
+      desc: "The same check with the earlier form swapped for one the ARP filled in at another school that month. Close to the return figure for most ARPs." },
+    { id: "returnN", label: "Return visits to a class", short: "Returns", fmt: (x) => (x == null ? "–" : fmtInt(x)), domain: [0, 60],
+      desc: "Visits to a class the ARP had observed in an earlier month." },
+    { id: "teachersAgain", label: "Teachers observed in two or more months", short: "Teachers again", fmt: (x) => (x == null ? "–" : fmtInt(x)), domain: [0, 80],
+      desc: "Teachers, matched by name within a school, that the ARP observed in at least two different months." },
     { id: "minutes", label: "Median visit length", short: "Minutes", fmt: (x) => (x == null ? "–" : Math.round(x) + " min"), domain: [100, 160], desc: "Time the app recorded per observation." },
     { id: "visitsPerMonth", label: "Visits per active month", short: "Visits/month", fmt: (x) => (x == null ? "–" : x.toFixed(1)), domain: [0, 35], desc: "Average observations in months with at least one." },
     { id: "targetShare", label: "Months at the 30-visit target", short: "At target", fmt: pct, domain: [0, 1], desc: "" },
@@ -146,6 +154,8 @@ window.S = (function () {
       <svg class="chart" id="pfitems"></svg>
       <h4>What and how much ${first} observes</h4>
       <div class="stats">${["visitsPerMonth", "targetShare", "schools", "teacherRepeat", "firstPeriod", "headTeacher", "shikshaMitra", "hindiShare", "grade1Share", "weekOther", "minutes"].map(st).join("")}</div>
+      <h4>Return visits</h4>
+      <div class="stats">${["returnN", "returnIdent", "otherIdent", "teachersAgain"].map(st).join("")}</div>
       <h4>Spot assessments</h4>
       <div class="stats">${["spotSaksham", "spotVsBlock", "spotAllSaksham", "spotZero", "spotOver5", "spotN"].map(st).join("")}</div>
       <h4>Observations per month</h4><svg class="chart" id="spv" height="120"></svg>

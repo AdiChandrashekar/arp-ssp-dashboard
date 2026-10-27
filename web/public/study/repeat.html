@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Return Visits</title>
+<meta name="description" content="What ARPs record when they observe the same class or the same teacher again in a later month.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+header.top { padding: 40px 0 10px; }
+header.top h1 { font-size: clamp(30px, 5vw, 56px); margin: 8px 0 10px; }
+.big { display: flex; flex-wrap: wrap; gap: 20px 44px; margin: 10px 0 0; }
+.big div b { display: block; font-family: var(--display); font-weight: 800; font-size: clamp(32px, 4.6vw, 52px); line-height: 1; letter-spacing: -.02em; }
+.big div span { font-size: 14px; color: var(--text-2); }
+.legendrow { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; color: var(--text-2); margin: 0 0 10px; }
+.legendrow i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.legendrow i.sq { border-radius: 3px; }
+.legendrow i.open { background: var(--surface); border: 2px solid #8C8798; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+.panel h3.sub { margin-top: 0; font-size: 19px; }
+ul.plain { padding-left: 20px; color: var(--text-2); font-size: clamp(16px, 1.8vw, 18px); }
+ul.plain li { margin: 0 0 10px; }
+</style>
+</head>
+<body>
+<div id="tip" role="tooltip"></div>
+<nav class="nav"><div class="wrap"><b>ARP form study</b><a href="index.html">Story</a><a href="explore.html">Explore &amp; compare</a><a href="fln.html">FLN deep dive</a><a href="spot.html">Spot assessments</a><a href="repeat.html" class="on">Return visits</a><a href="../">Dashboard</a></div></nav>
+
+<header class="top"><div class="wrap">
+  <div class="kicker">Return visits · Grade 1–3 FLN forms</div>
+  <h1>When an ARP goes back to the <mark>same class</mark></h1>
+  <p class="lead">ARPs often observe the same class again a few months later, and often the same teacher. If the form records what goes on in a classroom, two forms for one class should agree more than two forms for different classes. This page checks that. A class here is one school, one grade and one subject (Hindi or Maths) on the Grade 1–3 FLN forms, and each later visit is paired with the visit before it, in an earlier month.</p>
+  <div class="big">
+    <div><b class="num" id="nClasses"></b><span id="nClassesLab">classes observed in two or more months</span></div>
+    <div><b class="num" id="nSame"></b><span>return visits by the same ARP</span></div>
+    <div><b class="num" id="nOther"></b><span>return visits by a different ARP</span></div>
+    <div><b class="num" id="nTeachers"></b><span>teachers observed again in a later month</span></div>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <section class="block">
+    <h2 class="sec" id="gapHead"></h2>
+    <p class="lead" id="gapText"></p>
+    <div class="legendrow"><span><i class="sq" style="background:#0F8B8D"></i>Same ARP</span><span><i class="sq" style="background:#9ED1C6"></i>Different ARP</span></div>
+    <div class="panel rise"><svg class="chart" id="gaps"></svg></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">Back in the same class, an ARP's answers match <mark>about as often as at another school</mark></h2>
+    <p class="lead" id="cmpText"></p>
+    <div class="legendrow"><span><i style="background:#0F8B8D"></i>Earlier form for the same class</span><span><i class="open"></i>Stand-in: a form from another school, same month</span></div>
+    <div class="grid3">
+      <div class="panel rise"><h3 class="sub">Answers that match</h3><p class="note">Share of questions with the same answer on both forms.</p><svg class="chart" id="cmpAgree"></svg></div>
+      <div class="panel rise"><h3 class="sub">Whole form identical</h3><p class="note">Share of pairs where every answer is the same.</p><svg class="chart" id="cmpIdent"></svg></div>
+      <div class="panel rise"><h3 class="sub">Positivity moves together</h3><p class="note">Correlation (r) of the two forms' positivity, from 0 (no link) to 1.</p><svg class="chart" id="cmpR"></svg></div>
+    </div>
+    <p class="lead" id="rText" style="margin-top:24px"></p>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">Question by question, the class <mark>adds a few points at most</mark></h2>
+    <p class="lead" id="itemText"></p>
+    <div class="legendrow"><span><i style="background:#0F8B8D"></i>Earlier form for the same class</span><span><i class="open"></i>Stand-in from another school, same month</span></div>
+    <div class="grid2">
+      <div class="panel rise"><h3 class="sub" style="margin-top:0">Same ARP returns</h3><svg class="chart" id="itemSame"></svg></div>
+      <div class="panel rise"><h3 class="sub" style="margin-top:0">A different ARP returns</h3><svg class="chart" id="itemOther"></svg></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">After a “no”, the next form for that class <mark>looks much like any other</mark></h2>
+    <p class="lead" id="turnText"></p>
+    <div class="legendrow"><span><i style="background:#0F8B8D"></i>After a “no” in the same class</span><span><i class="open"></i>After a “no” at another school that month</span></div>
+    <div class="panel rise"><svg class="chart" id="turns"></svg></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">The same teacher in another class <mark>gets much the same answers</mark></h2>
+    <p class="lead" id="teacherText"></p>
+    <div class="legendrow"><span><i style="background:#0F8B8D"></i>Same teacher, same class</span><span><i class="open"></i>Same teacher, another grade or subject</span><span><i class="sq" style="background:var(--text);width:3px;height:14px;border-radius:0"></i>Another school that month (no shared teacher)</span></div>
+    <div class="grid2">
+      <div class="panel rise"><h3 class="sub">Answers that match</h3><svg class="chart" id="tAgree"></svg></div>
+      <div class="panel rise"><h3 class="sub">Positivity moves together (r)</h3><svg class="chart" id="tR"></svg></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">Grade 4–8: the <mark>lesson-plan answer</mark> follows the ARP too</h2>
+    <p class="lead" id="lpText"></p>
+    <div class="legendrow"><span><i style="background:#0F8B8D"></i>Earlier form for the same class</span><span><i class="open"></i>Stand-in from another school, same month</span></div>
+    <div class="panel rise"><svg class="chart" id="lp"></svg></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">No ARP stands out for <mark>following the class</mark></h2>
+    <p class="lead" id="arpText"></p>
+    <div class="legendrow" id="styleLegend"></div>
+    <div class="panel rise"><svg class="chart" id="arpScatter"></svg></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">What this means for <mark>checking ARPs' forms</mark></h2>
+    <ul class="plain">
+      <li>A form says more about the ARP who filled it in than about the class they watched. The same ARP's forms for two different schools match almost as well as two of their forms for one class.</li>
+      <li>A return visit by the same ARP is a weak check on an earlier form, since the ARP's habits repeat wherever they go.</li>
+      <li>Two ARPs who observe one class months apart agree no more than two ARPs who observe different classes in the same block. Either classrooms change a lot from month to month, or the form records little about the classroom. Two people observing the same lesson on the same day would tell these apart.</li>
+      <li>Nothing here shows classes improving between visits, or failing to. A form that tracks the classroom this loosely can't measure that either way.</li>
+    </ul>
+    <p class="note" id="method"></p>
+  </section>
+</main>
+
+<footer><div class="wrap">Built from the mentor-app exports behind the <a href="../">ARP visit dashboard</a> · updated <span data-bind="generated"></span> · <a href="index.html#method">how this was measured</a></div></footer>
+<dialog id="pf" aria-labelledby="pfname"></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="common.js"></script>
+<script>
+(async function () {
+  const { STYLE_ORDER, COLOR, pct, fmtInt } = S;
+  const data = await S.load();
+  const R = data.repeat, T = data.TYPES, $ = (id) => document.getElementById(id);
+  const A = "#0F8B8D", B = "#8C8798";
+  const r2 = (x) => (x == null ? "–" : (x < 0 ? "−" : "") + Math.abs(x).toFixed(2));
+  const ptsDiff = (a, b) => { const v = Math.round((a - b) * 100); return (v < 0 ? "−" : "") + Math.abs(v); };
+  const [cSame, cElse, cOther, cBlock] = R.compare;
+
+  $("nClasses").textContent = fmtInt(R.classes);
+  $("nClassesLab").textContent = `of ${fmtInt(R.classesTotal)} classes observed in two or more months`;
+  $("nSame").textContent = fmtInt(R.pairs.same);
+  $("nOther").textContent = fmtInt(R.pairs.other);
+  $("nTeachers").textContent = fmtInt(R.teachers);
+  $("styleLegend").innerHTML = STYLE_ORDER.map((t) => `<span><i style="background:${COLOR[t]}"></i>${T[t].label}</span>`).join("");
+
+  // ---- gaps ----
+  const tot = d3.sum(R.gaps, (g) => g[1] + g[2]), within = d3.sum(R.gaps.filter((g) => g[0] <= 5), (g) => g[1] + g[2]) / tot;
+  const sameShare = R.pairs.same / (R.pairs.same + R.pairs.other);
+  $("gapHead").innerHTML = `${pct(within)} of return visits come <mark>within five months</mark>`;
+  $("gapText").textContent = `There are ${fmtInt(tot)} return visits to a class: a later visit paired with the one before it, in an earlier month. ${pct(sameShare)} were by the ARP who made the earlier visit, and the rest by a different ARP.`;
+  function drawGaps() {
+    const svg = d3.select("#gaps"); svg.selectAll("*").remove();
+    const w = svg.node().getBoundingClientRect().width, h = 280, m = { t: 14, r: 8, b: 46, l: 50 };
+    svg.attr("height", h);
+    const x = d3.scaleBand().domain(R.gaps.map((g) => g[0])).range([m.l, w - m.r]).padding(0.2);
+    const y = d3.scaleLinear().domain([0, d3.max(R.gaps, (g) => g[1] + g[2])]).nice().range([h - m.b, m.t]);
+    y.ticks(4).forEach((t) => svg.append("line").attr("class", "gridline").attr("x1", m.l).attr("x2", w - m.r).attr("y1", y(t)).attr("y2", y(t)));
+    svg.append("g").attr("class", "axis").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(4).tickFormat(d3.format(",")).tickSizeOuter(0));
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${h - m.b})`).call(d3.axisBottom(x).tickFormat((v) => (v === 12 ? "12+" : v)).tickSizeOuter(0));
+    svg.append("text").attr("class", "lbl").attr("x", (m.l + w) / 2).attr("y", h - 8).attr("text-anchor", "middle").text("Months between the two visits");
+    R.gaps.forEach(([mo, s, o]) => {
+      const tip = (ev) => S.showTip(ev, `<b>${mo === 12 ? "12 or more" : mo} month${mo === 1 ? "" : "s"} apart</b>Same ARP ${fmtInt(s)}<br>Different ARP ${fmtInt(o)}`);
+      svg.append("rect").attr("x", x(mo)).attr("width", x.bandwidth()).attr("y", y(s)).attr("height", y(0) - y(s)).attr("fill", A).attr("rx", 2).on("pointermove", tip).on("pointerleave", S.hideTip);
+      svg.append("rect").attr("x", x(mo)).attr("width", x.bandwidth()).attr("y", y(s + o)).attr("height", Math.max(0, y(s) - y(s + o) - 1.5)).attr("fill", "#9ED1C6").attr("rx", 2).on("pointermove", tip).on("pointerleave", S.hideTip);
+    });
+  }
+
+  // ---- dumbbell: one row per item, a filled dot (a), an open dot (b), optional reference tick (c) ----
+  function dumbbell(sel, rows, { domain, fmt, labA, labB, labC }) {
+    const svg = d3.select(sel); svg.selectAll("*").remove();
+    const w = svg.node().getBoundingClientRect().width, lineH = 15;
+    const labW = Math.min(w * 0.42, 250), m = { l: labW, r: 16 };
+    const x = d3.scaleLinear().domain(domain).range([m.l, w - m.r]);
+    const grid = svg.append("g"), body = svg.append("g");
+    let y = 6;
+    rows.forEach((r) => {
+      const lab = body.append("text").attr("class", "lbl-strong").attr("x", 0).text(r.label);
+      const n = S.wrap(lab, labW - 12, lineH), rowH = Math.max(30, n * lineH + 12), yc = y + rowH / 2;
+      lab.attr("y", yc + 4 - (n - 1) * lineH / 2);
+      const tip = (ev) => S.showTip(ev, `<b>${r.label}</b>${labA}: ${fmt(r.a)}<br>${labB}: ${fmt(r.b)}${r.c != null ? `<br>${labC}: ${fmt(r.c)}` : ""}${r.n ? `<br><span class="m">${fmtInt(r.n)} pairs</span>` : ""}`);
+      if (r.a != null && r.b != null) body.append("line").attr("x1", x(r.a)).attr("x2", x(r.b)).attr("y1", yc).attr("y2", yc).attr("stroke", "#CFCAD6").attr("stroke-width", 4).attr("stroke-linecap", "round");
+      if (r.c != null) body.append("line").attr("x1", x(r.c)).attr("x2", x(r.c)).attr("y1", yc - 9).attr("y2", yc + 9).attr("stroke", "var(--text)").attr("stroke-width", 2.5);
+      if (r.b != null) body.append("circle").attr("cx", x(r.b)).attr("cy", yc).attr("r", 6.5).attr("fill", "var(--surface)").attr("stroke", B).attr("stroke-width", 2.2).on("pointermove", tip).on("pointerleave", S.hideTip);
+      if (r.a != null) body.append("circle").attr("cx", x(r.a)).attr("cy", yc).attr("r", 6.5).attr("fill", A).attr("stroke", "var(--surface)").attr("stroke-width", 1.5).on("pointermove", tip).on("pointerleave", S.hideTip);
+      y += rowH;
+    });
+    svg.attr("height", y + 30);
+    x.ticks(w < 420 ? 3 : 5).forEach((t) => grid.append("line").attr("class", "gridline").attr("x1", x(t)).attr("x2", x(t)).attr("y1", 2).attr("y2", y));
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${y + 4})`).call(d3.axisBottom(x).ticks(w < 420 ? 3 : 5).tickFormat(fmt).tickSizeOuter(0));
+  }
+  const p0 = d3.format(".0%");
+
+  // ---- same class vs stand-in ----
+  $("cmpText").textContent = `When an ARP comes back to a class, ${pct(cSame.agree)} of their answers match their earlier form for it, and ${pct(cSame.ident)} of the forms are identical question for question. To see how much of that comes from the class, each earlier form was swapped for one the same ARP filled in at another school in the same month. Those stand-ins match ${pct(cElse.agree)} of answers, and ${pct(cElse.ident)} are identical, so the class adds ${ptsDiff(cSame.agree, cElse.agree)} points. When a different ARP comes back, ${pct(cOther.agree)} of answers match the earlier form, and a form from another school in the block that month matches ${pct(cBlock.agree)}.`;
+  $("rText").textContent = `Positivity, the points above or below the average answer for the same form, grade and month, gives the same result. Two forms by one ARP correlate at r = ${r2(cSame.r)} for the same class and ${r2(cElse.r)} across schools. Two forms for the same class by different ARPs correlate at ${r2(cOther.r)}, and two forms from different classes in the same block and month at ${r2(cBlock.r)}. Who fills in the form explains more of how positive it is than which class they watched.`;
+  const cmpRows = (k) => [{ label: "Same ARP returns", a: cSame[k], b: cElse[k], n: cSame.n }, { label: "Different ARP returns", a: cOther[k], b: cBlock[k], n: cOther.n }];
+  const cmpOpts = (fmt, domain) => ({ domain, fmt, labA: "Same class", labB: "Another school, same month" });
+
+  // ---- items ----
+  const gapS = R.items.map((i) => i.same - i.other), gapO = R.items.map((i) => i.otherArp - i.block);
+  const worst = R.items.reduce((a, b) => (b.otherArp < a.otherArp ? b : a));
+  $("itemText").textContent = `For the same ARP, the class adds between ${ptsDiff(d3.min(gapS), 0)} and ${ptsDiff(d3.max(gapS), 0)} points on every question. For different ARPs it adds between ${ptsDiff(d3.min(gapO), 0)} and ${ptsDiff(d3.max(gapO), 0)}. Different ARPs disagree most on “${worst.label}” (${pct(worst.otherArp)} match), and on the other questions with in-between answers.`;
+
+  // ---- turns ----
+  const peer = R.turns.find((t) => t.id === "peer"), tr = R.trend, bv = tr.byVisit;
+  $("turnText").textContent = `If feedback after a visit led to change, a practice marked missing in a class should more often be marked present when the ARP comes back. The chart shows how often the same ARP gives the top answer on their return visit, after a “no” in that class, and after a “no” on a form from another school that month. A “no” in the same class makes a second “no” a few points likelier: ${pct(peer.same)} of return forms show peer learning after a “no” there, against ${pct(peer.other)} after a “no” elsewhere. The forms don't show classes getting better between visits. Across ${fmtInt(bv[0][2])} classes the same ARP saw three or more times, positivity was ${bv.slice(0, 3).map((b) => S.pts(b[1])).join(", ")} on the first, second and third visit.`;
+  const turnRows = R.turns.map((t) => ({ label: t.label, a: t.same, b: t.other, n: t.n }));
+
+  // ---- teacher ----
+  const [tSS, tSO, tOS, tOO] = R.teacher;
+  $("teacherText").textContent = `Teachers are matched by name within a school, so ${fmtInt(R.teachers)} teachers were observed again in a later month. Knowing the teacher adds little. One ARP's forms for one teacher match ${pct(tSS.agree)} when the teacher is in the same class and ${pct(tSO.agree)} when the teacher is teaching another grade or subject, against ${pct(cElse.agree)} for a form from another school. Different ARPs observing the same teacher match ${pct(tOS.agree)} in the same class and ${pct(tOO.agree)} in another, against ${pct(cBlock.agree)} for two classes in the same block.`;
+  const tRows = (k) => [{ label: "Same ARP returns", a: tSS[k], b: tSO[k], c: cElse[k], n: tSS.n + tSO.n }, { label: "Different ARP returns", a: tOS[k], b: tOO[k], c: cBlock[k], n: tOS.n + tOO.n }];
+  const tOpts = (fmt, domain) => ({ domain, fmt, labA: "Same teacher, same class", labB: "Same teacher, another grade or subject", labC: "Another school that month" });
+
+  // ---- lesson plan ----
+  const [lS, lE, lO, lB] = R.lessonPlan;
+  $("lpText").textContent = `The Grade 4–8 form starts with “Is there a lesson plan?”, and a “no” ends it. A class's lesson-plan answer matches the same ARP's earlier answer for it ${pct(lS.agree)} of the time, and their answer at another school ${pct(lE.agree)} of the time. A different ARP matches the earlier answer ${pct(lO.agree)} of the time, and a form from another school in the block ${pct(lB.agree)}.`;
+  const lpRows = [{ label: "Same ARP returns", a: lS.agree, b: lE.agree, n: lS.n }, { label: "Different ARP returns", a: lO.agree, b: lB.agree, n: lO.n }];
+
+  // ---- per ARP ----
+  const arps = data.typed.filter((d) => d.returnIdent != null && d.otherIdent != null);
+  $("arpText").textContent = `For the ${arps.length} ARPs with at least 15 return visits: across, the share of their forms identical to a stand-in from another school that month; up, the share identical to their earlier form for the same class. Dots on the dashed line treat a class they know the same as any other. Uniform ARPs, top right, write near-identical forms everywhere. When each ARP's return visits are split at random into two halves, the gap between the two measures doesn't repeat (r = ${r2(R.memoryReliability)}), so this page doesn't rank ARPs on it.`;
+  function drawArps() {
+    const svg = d3.select("#arpScatter"); svg.selectAll("*").remove();
+    const w = svg.node().getBoundingClientRect().width, h = Math.min(520, Math.max(320, w * 0.6)), m = { t: 12, r: 14, b: 44, l: 50 };
+    svg.attr("height", h);
+    const x = d3.scaleLinear().domain([0, 1]).range([m.l, w - m.r]), y = d3.scaleLinear().domain([0, 1]).range([h - m.b, m.t]);
+    y.ticks(5).forEach((t) => svg.append("line").attr("class", "gridline").attr("x1", m.l).attr("x2", w - m.r).attr("y1", y(t)).attr("y2", y(t)));
+    svg.append("line").attr("class", "ref").attr("x1", x(0)).attr("y1", y(0)).attr("x2", x(1)).attr("y2", y(1));
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${h - m.b})`).call(d3.axisBottom(x).ticks(5).tickFormat(p0).tickSizeOuter(0));
+    svg.append("g").attr("class", "axis").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(p0).tickSizeOuter(0));
+    svg.append("text").attr("class", "lbl").attr("x", (m.l + w) / 2).attr("y", h - 6).attr("text-anchor", "middle").text("Identical to a form from another school");
+    svg.append("text").attr("class", "lbl").attr("transform", `translate(12,${(m.t + h - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Identical to the earlier form, same class");
+    svg.append("g").selectAll("circle").data(arps).join("circle").attr("class", "dot").attr("r", 4).attr("cx", (d) => x(d.otherIdent)).attr("cy", (d) => y(d.returnIdent)).attr("fill", (d) => COLOR[d.type])
+      .on("pointermove", (ev, d) => S.showTip(ev, S.arpTip(d, `<br>Identical on return ${pct(d.returnIdent)} · elsewhere ${pct(d.otherIdent)}<br>${d.returnN} return visits`))).on("pointerleave", S.hideTip).on("click", (ev, d) => S.openProfile(d));
+  }
+
+  $("method").textContent = `How this was measured: ARP visits only, Grade 1–3 Hindi and Maths forms unless stated, ${fmtInt(R.pairs.same + R.pairs.other)} pairs of consecutive visits to a class in different months. Each stand-in is a form from the same month as the earlier visit, so the time between the two forms stays the same. Teacher names are matched as written, ignoring spaces, punctuation and case, so a name spelt two ways counts as two teachers. Reading fluency, asked on Hindi forms only, is left out.`;
+
+  const all = () => {
+    drawGaps();
+    dumbbell("#cmpAgree", cmpRows("agree"), cmpOpts(p0, [0.6, 1]));
+    dumbbell("#cmpIdent", cmpRows("ident"), cmpOpts(p0, [0, 0.6]));
+    dumbbell("#cmpR", cmpRows("r"), cmpOpts(r2, [0, 0.6]));
+    dumbbell("#itemSame", R.items.map((i) => ({ label: i.label, a: i.same, b: i.other })), cmpOpts(p0, [0.4, 1]));
+    dumbbell("#itemOther", R.items.map((i) => ({ label: i.label, a: i.otherArp, b: i.block })), { domain: [0.4, 1], fmt: p0, labA: "Same class", labB: "Another school in the block, same month" });
+    dumbbell("#turns", turnRows, { domain: [0, 1], fmt: p0, labA: "Top answer after a “no” in this class", labB: "After a “no” at another school" });
+    dumbbell("#tAgree", tRows("agree"), tOpts(p0, [0.6, 1]));
+    dumbbell("#tR", tRows("r"), tOpts(r2, [0, 0.7]));
+    dumbbell("#lp", lpRows, cmpOpts(p0, [0.5, 1]));
+    drawArps();
+  };
+  all(); addEventListener("resize", S.debounce(all, 200));
+  S.wireProfile();
+})();
+</script>
+</body>
+</html>
