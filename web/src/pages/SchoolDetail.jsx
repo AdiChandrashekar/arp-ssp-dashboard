@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { allMonths, applyFilters, applySpotFilters, attendance, countBy, fmt, groupBy, kpiRate, monthLabel, monthShort, periodLabel, SPOT_LEVELS, spotForVisit, spotSummary, spotText } from '../data.js'
+import { allMonths, applyFilters, applySpotFilters, attendance, countBy, fmt, groupBy, kpiRate, monthLabel, monthShort, periodLabel, periodSelect, SPOT_LEVELS, spotFilterNote, spotForVisit, spotSummary, spotText } from '../data.js'
 import { Card, DataTable, Empty, Pill, Section, StatCard } from '../components/ui.jsx'
 import { BarList, ColumnChart, Heatmap, LevelBar, SpotBadge, StackedShareChart } from '../components/charts.jsx'
 
@@ -16,11 +16,11 @@ export default function SchoolDetail({ data, filters, setFilters, nav, id }) {
     const allTime = applyFilters(mine, f, { period: false })
     const inPeriod = applyFilters(mine, f)
     const byMonth = groupBy(allTime, (v) => v.month)
-    const spotAll = applySpotFilters(data.spot.filter((r) => r.school === id), f, { period: false })
+    const spotAll = applySpotFilters(data, f, { period: false, rows: data.spot.filter((r) => r.school === id) })
     return {
       spotAll,
       spotByMonth: groupBy(spotAll, (r) => r.month),
-      spotInPeriod: applySpotFilters(spotAll, f),
+      spotInPeriod: applySpotFilters(data, f, { rows: spotAll }),
       allTime,
       inPeriod,
       byMonth,
@@ -82,11 +82,12 @@ export default function SchoolDetail({ data, filters, setFilters, nav, id }) {
               xs={spotTrend.map((mo) => ({ key: mo, label: monthShort(mo) }))}
               levels={SPOT_LEVELS}
               value={(mo) => (m.spotByMonth.has(mo) ? spotSummary(m.spotByMonth.get(mo)) : null)}
-              selectedKey={filters.ptype === 'month' ? filters.pval : null}
+              selectedKey={periodSelect(filters)}
               onSelect={(mo) => data.months.includes(mo) && setFilters({ ptype: 'month', pval: mo })}
+              note={spotFilterNote(filters)}
             />
           ) : (
-            <Empty>No spot assessments recorded for this school{filters.grade ? ' in this grade' : ''}.</Empty>
+            <Empty>No spot assessments recorded for this school{filters.grade || filters.subject ? ' in a month a mentor observed this grade or subject here' : ''}.</Empty>
           )}
         </Card>
         <Card className="card-spot" title="Spot assessment log" sub="One row per month (per class from Aug 2026) · who visited the school that month">
@@ -135,13 +136,14 @@ export default function SchoolDetail({ data, filters, setFilters, nav, id }) {
       </div>
 
       <div className="grid-2">
-        <Card title="Grades observed, month by month" sub="Number of classroom observations · all time">
+        <Card title="Grades observed, month by month" sub="Number of classroom observations · all months, the selected period highlighted">
           {m.allTime.length ? (
             <Heatmap
               rowHeader="Grade"
               rows={[1, 2, 3, 4, 5, 6, 7, 8].map((g) => ({ key: g, label: `Grade ${g}` }))}
               cols={data.months.map((mo) => ({ key: mo, label: monthShort(mo) }))}
               max={3}
+              selectedCol={periodSelect(filters)}
               cell={(g, mo) => {
                 const n = m.gradeMonth.get(`${g}|${mo}`)
                 return n ? { value: Math.min(n, 3), text: n, tip: `Grade ${g}, ${monthShort(mo)}: ${n}` } : null
@@ -159,6 +161,8 @@ export default function SchoolDetail({ data, filters, setFilters, nav, id }) {
               return { key: mo, label: monthShort(mo), value: a ?? 0, tip: a == null ? `${monthShort(mo)}: no visit` : `${monthShort(mo)}: ${fmt.pct(a)} present` }
             })}
             valueFormat={(v) => `${Math.round(v)}%`}
+            selectedKey={periodSelect(filters)}
+            onSelect={(mo) => setFilters({ ptype: 'month', pval: mo })}
           />
         </Card>
       </div>

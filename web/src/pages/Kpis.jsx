@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { applyFilters, attendance, fmt, groupBy, inPeriod, kpiRate, monthShort, periodLabel } from '../data.js'
+import { applyFilters, attendance, fmt, groupBy, inPeriod, kpiRate, monthShort, periodLabel, periodSelect } from '../data.js'
 import { BarList, Heatmap } from '../components/charts.jsx'
 import { Card, Empty, StatCard, Tabs } from '../components/ui.jsx'
 
@@ -90,11 +90,12 @@ export default function Kpis({ data, filters, setFilters }) {
             </Card>
           </div>
 
-          <Card title="Month-by-month trend" sub="% of observations each month (period filter ignored)">
+          <Card title="Month-by-month trend" sub="% of observations each month · the selected period is highlighted">
             <Heatmap
               rowHeader="KPI"
               rows={kpis.map((k) => ({ key: k.id, label: k.label }))}
               cols={data.months.map((mo) => ({ key: mo, label: monthShort(mo) }))}
+              selectedCol={periodSelect(filters)}
               cell={(kid, mo) => {
                 const r = kpiRate(m.byMonth.get(mo) || [], data.kpiIndex[kid])
                 return r.n < 5 ? null : { value: r.pct, text: Math.round(r.pct), tip: `${monthShort(mo)}: ${fmt.pct(r.pct)} (n=${r.n})` }

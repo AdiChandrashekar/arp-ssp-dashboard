@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { allMonths, applyFilters, applySpotFilters, attendance, countBy, fmt, groupBy, kpiRate, mean, monthShort, monthLabel, monthsInPeriod, inPeriod, periodLabel, SPOT_LEVELS, spotSummary, sspCoverage, statusFor } from '../data.js'
+import { allMonths, applyFilters, applySpotFilters, attendance, countBy, fmt, groupBy, kpiRate, mean, monthShort, monthLabel, monthsInPeriod, inPeriod, periodLabel, periodSelect, SPOT_LEVELS, spotFilterNote, spotSummary, sspCoverage, statusFor } from '../data.js'
 import { Card, DataTable, Section, StatCard } from '../components/ui.jsx'
 import { BarList, ColumnChart, Heatmap, LevelBar, StackedShareChart } from '../components/charts.jsx'
 
@@ -39,8 +39,8 @@ export default function Overview({ data, filters, setFilters, nav }) {
     })
 
     // Spot assessments: the period's, and every month for the trend
-    const spotPeriod = applySpotFilters(data.spot, filters)
-    const spotByMonth = groupBy(applySpotFilters(data.spot, filters, { period: false }), (r) => r.month)
+    const spotPeriod = applySpotFilters(data, filters)
+    const spotByMonth = groupBy(applySpotFilters(data, filters, { period: false }), (r) => r.month)
     const spotByBlock = groupBy(spotPeriod, (r) => r.block)
 
     // Block table
@@ -152,12 +152,12 @@ export default function Overview({ data, filters, setFilters, nav }) {
         sub={`Students assessed by visiting mentors, by level · Madhyam was added in Apr 2026${data.meta.spotTo > data.months[data.months.length - 1] ? ` · spot data runs to ${monthLabel(data.meta.spotTo)}, ahead of the visit data` : ''} · click a month to open it`}
       >
         <StackedShareChart
-          xs={allMonths(data).map((mo) => ({ key: mo, label: monthShort(mo) }))}
+          xs={allMonths(data).filter((mo) => mo >= (data.meta.spotFrom || mo)).map((mo) => ({ key: mo, label: monthShort(mo) }))}
           levels={SPOT_LEVELS}
           value={(mo) => (m.spotByMonth.has(mo) ? spotSummary(m.spotByMonth.get(mo)) : null)}
-          selectedKey={filters.ptype === 'month' ? filters.pval : null}
+          selectedKey={periodSelect(filters)}
           onSelect={(mo) => data.months.includes(mo) && setFilters({ ptype: 'month', pval: mo })}
-          note={filters.grade ? 'Grade filter: classes are recorded from Aug 2026; earlier months show the whole school.' : null}
+          note={spotFilterNote(filters)}
         />
       </Card>
 
@@ -177,7 +177,7 @@ export default function Overview({ data, filters, setFilters, nav }) {
               ),
             }))}
             valueFormat={(v) => fmt.int(v)}
-            selectedKey={filters.ptype === 'month' ? filters.pval : null}
+            selectedKey={periodSelect(filters)}
             onSelect={(mo) => setFilters({ ptype: 'month', pval: mo })}
           />
         </Card>
@@ -197,7 +197,7 @@ export default function Overview({ data, filters, setFilters, nav }) {
             }))}
             reference={filters.ssp ? undefined : { value: target, label: `Target ${target}` }}
             valueFormat={(v) => fmt.int(v)}
-            selectedKey={filters.ptype === 'month' ? filters.pval : null}
+            selectedKey={periodSelect(filters)}
             onSelect={(mo) => setFilters({ ptype: 'month', pval: mo })}
           />
         </Card>

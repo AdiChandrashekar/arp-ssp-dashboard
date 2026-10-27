@@ -12,7 +12,7 @@ export default function Schools({ data, filters, nav }) {
       (s) => (!filters.block || s.block === filters.block) && (!filters.stype || s.type === filters.stype) && (!filters.ssp || s.ssp),
     )
     const inPeriod = groupBy(applyFilters(data.visits, filters), (v) => v.school)
-    const spotRows = applySpotFilters(data.spot, filters)
+    const spotRows = applySpotFilters(data, filters)
     const spot = groupBy(spotRows, (r) => r.school)
     const allTime = groupBy(applyFilters(data.visits, { ...filters, grade: '', subject: '' }, { period: false }), (v) => v.school)
     const rows = universe.map((s) => {

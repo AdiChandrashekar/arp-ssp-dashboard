@@ -76,7 +76,7 @@ export default function Ssp({ data, filters, nav }) {
     const otherByMonth = groupBy(otherV, (v) => v.month)
     const bySchoolMonth = groupBy(sspV, (v) => `${v.school}|${v.month}`)
     const coverage = months.map((mo) => sspCoverage(data, sspByMonth.get(mo) || [], filters))
-    const spot = applySpotFilters(data.spot, { ...filters, ptype: 'all', ssp: '' }).filter((r) => r.month >= meta.sspFrom)
+    const spot = applySpotFilters(data, { ...filters, ptype: 'all', ssp: '' }).filter((r) => r.month >= meta.sspFrom)
     const spotSsp = groupBy(spot.filter((r) => r.ssp), (r) => r.month)
     const spotOther = groupBy(spot.filter((r) => !r.ssp), (r) => r.month)
     const inScope = data.sspSchools.filter((s) => (!filters.block || s.block === filters.block) && (!filters.stype || s.type === filters.stype))

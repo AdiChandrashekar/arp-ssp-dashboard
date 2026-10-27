@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { applyFilters, countBy, fmt, groupBy, mentorSummary, monthShort, monthsInPeriod, periodLabel, sspCoverage, statusFor, TREND_FROM, trendMonths } from '../data.js'
+import { applyFilters, countBy, fmt, groupBy, mentorSummary, monthShort, monthsInPeriod, periodLabel, periodSelect, sspCoverage, statusFor, TREND_FROM, trendMonths } from '../data.js'
 import { Card, DataTable, Meter, Section, StatCard, Tabs } from '../components/ui.jsx'
 import { Heatmap, LineChart, yMaxWithTarget } from '../components/charts.jsx'
 
@@ -143,7 +143,7 @@ export default function Mentors({ data, filters, setFilters, nav, category }) {
             yMax={yMaxWithTarget(m.trend.map((t) => (t.active ? t.visits / t.active : null)), target)}
             valueFormat={(v) => (Number.isInteger(v) ? fmt.int(v) : fmt.num1(v))}
             reference={{ value: target, label: `Target ${target}` }}
-            selectedKey={filters.ptype === 'month' ? filters.pval : null}
+            selectedKey={periodSelect(filters)}
             onSelect={(pval) => setFilters({ ptype: 'month', pval })}
           />
         </Card>
@@ -179,6 +179,7 @@ export default function Mentors({ data, filters, setFilters, nav, category }) {
             rows={[...m.rows].sort((a, b) => a.block.localeCompare(b.block) || a.name.localeCompare(b.name)).map((r) => ({ key: r.id, label: r.name, title: `${r.name} · ${r.block}` }))}
             cols={data.months.map((mo) => ({ key: mo, label: monthShort(mo) }))}
             max={isArp ? target : Math.max(1, ...m.monthCounts.values())}
+            selectedCol={periodSelect(filters)}
             cell={(id, mo) => {
               const n = m.monthCounts.get(`${id}|${mo}`)
               return n ? { value: Math.min(n, isArp ? target : n), text: n, tip: `${n} visits` } : { value: null, text: '·' }

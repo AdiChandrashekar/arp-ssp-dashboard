@@ -42,6 +42,13 @@ function Tooltip({ tip }) {
  * Vertical columns, one series. data: [{ key, label, value, tip? }]
  * reference: optional { value, label } drawn as a solid hairline (e.g. a target).
  */
+// selectedKey: one key, or a predicate (key -> bool) for a period spanning several months.
+// Returns null when nothing is selected.
+function selector(selectedKey) {
+  if (selectedKey == null) return null
+  return typeof selectedKey === 'function' ? selectedKey : (k) => k === selectedKey
+}
+
 export function ColumnChart({ data, height = 220, reference, valueFormat = (v) => v, onSelect, selectedKey }) {
   const [ref, width] = useWidth()
   const [tip, setTip] = useState(null)
@@ -54,6 +61,7 @@ export function ColumnChart({ data, height = 220, reference, valueFormat = (v) =
   const barW = Math.max(4, Math.min(36, slot - 6))
   const y = (v) => pad.t + plotH - (v / max) * plotH
   const labelEvery = Math.ceil(data.length / Math.max(1, Math.floor(plotW / 48)))
+  const isSel = selector(selectedKey)
 
   return (
     <div className="chart" ref={ref} onMouseLeave={() => setTip(null)}>
@@ -72,7 +80,7 @@ export function ColumnChart({ data, height = 220, reference, valueFormat = (v) =
           const r = Math.min(4, barW / 2, h)
           const x0 = cx - barW / 2
           const top = y(0) - h
-          const dim = selectedKey && selectedKey !== d.key
+          const dim = isSel && !isSel(d.key)
           return (
             <g key={d.key}>
               {h > 0 && (
@@ -96,7 +104,7 @@ export function ColumnChart({ data, height = 220, reference, valueFormat = (v) =
                 }}
               />
               {i % labelEvery === 0 && (
-                <text x={cx} y={height - 8} className="tick" textAnchor="middle">
+                <text x={cx} y={height - 8} className={`tick${isSel?.(d.key) ? ' tick-selected' : ''}`} textAnchor="middle">
                   {d.label}
                 </text>
               )}
@@ -144,7 +152,8 @@ export function LineChart({ xs, series, height = 230, yMax = 100, valueFormat = 
   const colorOf = (s, i) => s.color || SERIES[i]
   // Thin the month labels to fit; the selected month always keeps its label.
   const labelEvery = Math.ceil(xs.length / Math.max(1, Math.floor(plotW / 44)))
-  const sel = xs.findIndex((xv) => xv.key === selectedKey)
+  const isSel = selector(selectedKey)
+  const sel = isSel ? xs.findIndex((xv) => isSel(xv.key)) : -1
   const showLabel = (i) => i === sel || (i % labelEvery === 0 && (sel < 0 || Math.abs(i - sel) >= labelEvery))
 
   const path = (vals) => {
@@ -192,7 +201,7 @@ export function LineChart({ xs, series, height = 230, yMax = 100, valueFormat = 
           </g>
         ))}
         {xs.map((xv, i) => showLabel(i) && (
-          <text key={xv.key} x={x(i)} y={height - 8} className={`tick${selectedKey === xv.key ? ' tick-selected' : ''}`} textAnchor="middle">
+          <text key={xv.key} x={x(i)} y={height - 8} className={`tick${isSel?.(xv.key) ? ' tick-selected' : ''}`} textAnchor="middle">
             {xv.label}
           </text>
         ))}
@@ -204,6 +213,9 @@ export function LineChart({ xs, series, height = 230, yMax = 100, valueFormat = 
             </text>
           </g>
         )}
+        {isSel && xs.map((xv, i) => isSel(xv.key) && (
+          <rect key={xv.key} x={x(i) - plotW / Math.max(2, xs.length - 1) / 2} y={pad.t} width={plotW / Math.max(1, xs.length - 1)} height={plotH} className="sel-band" />
+        ))}
         {hover != null && <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + plotH} className="crosshair" />}
         {series.map((s, i) => (
           <g key={s.key}>
@@ -280,7 +292,9 @@ export function BarList({ data, max = 100, valueFormat = (v) => `${Math.round(v)
  * Heatmap table. rows: [{ key, label }], cols: [{ key, label }],
  * cell(rowKey, colKey) -> { value, text, tip } | null. value in [0, max].
  */
-export function Heatmap({ rows, cols, cell, max = 100, rowHeader = '', onRowClick, legend }) {
+export function Heatmap({ rows, cols, cell, max = 100, rowHeader = '', onRowClick, legend, selectedCol }) {
+  const isSel = selector(selectedCol)
+  const dim = (c) => (isSel && !isSel(c.key) ? ' hm-dim' : '')
   return (
     <div className="heatmap-wrap">
       <table className="heatmap">
@@ -288,7 +302,7 @@ export function Heatmap({ rows, cols, cell, max = 100, rowHeader = '', onRowClic
           <tr>
             <th className="hm-rowhead">{rowHeader}</th>
             {cols.map((c) => (
-              <th key={c.key} className="hm-colhead">{c.label}</th>
+              <th key={c.key} className={`hm-colhead${dim(c)}`}>{c.label}</th>
             ))}
           </tr>
         </thead>
@@ -302,7 +316,7 @@ export function Heatmap({ rows, cols, cell, max = 100, rowHeader = '', onRowClic
                 return (
                   <td
                     key={c.key}
-                    className="hm-cell"
+                    className={`hm-cell${dim(c)}`}
                     style={col ? { background: col.bg, color: col.fg } : undefined}
                     title={v?.tip}
                   >
@@ -389,6 +403,7 @@ export function StackedShareChart({ xs, levels, value, height = 230, onSelect, s
   const y = (p) => pad.t + plotH - (p / 100) * plotH
   const labelEvery = Math.ceil(xs.length / Math.max(1, Math.floor(plotW / 48)))
   const pct = (d, k) => (d.n ? ((d[k] || 0) / d.n) * 100 : 0)
+  const isSel = selector(selectedKey)
 
   return (
     <div className="chart" ref={ref} onMouseLeave={() => setTip(null)}>
@@ -410,7 +425,7 @@ export function StackedShareChart({ xs, levels, value, height = 230, onSelect, s
         {xs.map((xv, i) => {
           const d = value(xv.key)
           const cx = pad.l + slot * i + slot / 2
-          const dim = selectedKey && selectedKey !== xv.key
+          const dim = isSel && !isSel(xv.key)
           let acc = 0
           return (
             <g key={xv.key} opacity={dim ? 0.35 : 1}>
@@ -457,7 +472,7 @@ export function StackedShareChart({ xs, levels, value, height = 230, onSelect, s
                 }}
               />
               {i % labelEvery === 0 && (
-                <text x={cx} y={height - 8} className={`tick${selectedKey === xv.key ? ' tick-selected' : ''}`} textAnchor="middle">{xv.label}</text>
+                <text x={cx} y={height - 8} className={`tick${isSel?.(xv.key) ? ' tick-selected' : ''}`} textAnchor="middle">{xv.label}</text>
               )}
             </g>
           )

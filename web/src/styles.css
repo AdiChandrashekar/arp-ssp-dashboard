@@ -251,6 +251,8 @@ h3 { font-size: 15px; margin: 0; }
 .chart .crosshair { stroke: var(--axis); stroke-width: 1; }
 .chart .end-label { font-size: 11.5px; fill: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }
 .chart .tick-selected { fill: var(--ink); font-weight: 700; }
+.chart .sel-band { fill: var(--accent); opacity: 0.08; pointer-events: none; }
+.hm-dim { opacity: 0.35; }
 
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; margin-bottom: 12px; }
 .grid-matrix { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }

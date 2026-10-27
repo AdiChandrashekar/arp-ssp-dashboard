@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { allMonths, applyFilters, countBy, fmt, groupBy, kpiRate, mean, mentorSummary, monthLabel, monthShort, monthsInPeriod, periodLabel, SPOT_LEVELS, spotForVisit, spotForVisits, spotSummary, spotText, statusFor, TREND_FROM, trendMonths } from '../data.js'
+import { allMonths, applyFilters, countBy, fmt, groupBy, kpiRate, mean, mentorSummary, monthLabel, monthShort, monthsInPeriod, periodLabel, periodSelect, SPOT_LEVELS, spotForVisit, spotForVisits, spotSummary, spotText, statusFor, TREND_FROM, trendMonths } from '../data.js'
 import { Card, DataTable, Empty, Pill, Section, StatCard, Tabs } from '../components/ui.jsx'
 import { BarList, Heatmap, LevelBar, LineChart, SpotBadge, MonthCalendar, StackedShareChart, yMaxWithTarget } from '../components/charts.jsx'
 
@@ -99,7 +99,7 @@ export default function MentorDetail({ data, filters, setFilters, nav, id, back 
             yMax={yMaxWithTarget(m.trend.map((mo) => m.byMonth.get(mo) || 0), isArp ? target : 0)}
             valueFormat={fmt.int}
             reference={isArp ? { value: target, label: `Target ${target}` } : undefined}
-            selectedKey={filters.ptype === 'month' ? filters.pval : null}
+            selectedKey={periodSelect(filters)}
             onSelect={(mo) => setFilters({ ptype: 'month', pval: mo })}
           />
         </Card>
@@ -116,7 +116,7 @@ export default function MentorDetail({ data, filters, setFilters, nav, id, back 
             xs={spotTrend.map((mo) => ({ key: mo, label: monthShort(mo) }))}
             levels={SPOT_LEVELS}
             value={(mo) => (m.spotByMonth.has(mo) ? spotSummary(m.spotByMonth.get(mo)) : null)}
-            selectedKey={filters.ptype === 'month' ? filters.pval : null}
+            selectedKey={periodSelect(filters)}
             onSelect={(mo) => data.months.includes(mo) && setFilters({ ptype: 'month', pval: mo })}
           />
         ) : (

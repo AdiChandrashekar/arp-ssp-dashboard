@@ -201,6 +201,12 @@ export function monthsInPeriod(months, filters) {
   return months.filter((m) => filters.ptype === 'all' || periodKey(m, filters.ptype) === filters.pval)
 }
 
+// For month-by-month charts: which months the period filter selects (null = all of them).
+export function periodSelect(filters) {
+  if (filters.ptype === 'all') return null
+  return (m) => periodKey(m, filters.ptype) === filters.pval
+}
+
 // ---------- Filters ----------
 
 export const DEFAULT_FILTERS = {
@@ -352,17 +358,42 @@ export const SPOT_LEVELS = [
   { key: 'zero', label: 'Zero score', en: 'no correct answers', color: '#eb6834' },
 ]
 
-// Same filters as visits. Spot rows have no subject; the class is known only
-// from Aug 2026, so under a grade filter earlier rows stay in as the whole school's result.
-export function applySpotFilters(spot, filters, { period = true } = {}) {
-  return spot.filter((r) => {
+// Same filters as visits. Spot rows have no subject, and no class before Aug 2026.
+// So a row with a class must match the grade filter, and under a grade or subject
+// filter every other row needs a visit matching it in that school and month.
+export function applySpotFilters(data, filters, { period = true, rows = data.spot } = {}) {
+  const visited = filters.grade || filters.subject ? visitedSchoolMonths(data, filters) : null
+  return rows.filter((r) => {
     if (period && filters.ptype !== 'all' && periodKey(r.month, filters.ptype) !== filters.pval) return false
     if (filters.block && r.block !== filters.block) return false
     if (filters.stype && r.stype !== filters.stype) return false
-    if (filters.grade && r.cls != null && !gradeMatches(r.cls, filters.grade)) return false
     if (filters.ssp && !r.ssp) return false
-    return true
+    if (filters.grade && r.cls != null) {
+      if (!gradeMatches(r.cls, filters.grade)) return false
+      if (!filters.subject) return true
+    }
+    return !visited || visited.has(`${r.school}|${r.month}`)
   })
+}
+
+// Chart note on how the grade and subject filters reach spot results.
+export function spotFilterNote(filters) {
+  const what = [filters.grade && 'grade', filters.subject && 'subject'].filter(Boolean).join(' and ')
+  if (!what) return null
+  return `Spot results have ${filters.subject ? 'no subject' : 'no class before Aug 2026'}, so with a ${what} filter they count only for schools where a mentor observed that ${what} in the same month${filters.grade ? ' (from Aug 2026, the class must also match)' : ''}.`
+}
+
+// "school|month" keys of the visits matching the grade and subject filters (cached per data set).
+const visitedCache = new WeakMap()
+function visitedSchoolMonths(data, filters) {
+  const key = `${filters.grade}|${filters.subject}`
+  if (!visitedCache.has(data)) visitedCache.set(data, new Map())
+  const cache = visitedCache.get(data)
+  if (!cache.has(key)) {
+    const vs = applyFilters(data.visits, { ptype: 'all', grade: filters.grade, subject: filters.subject }, { period: false })
+    cache.set(key, new Set(vs.map((v) => `${v.school}|${v.month}`)))
+  }
+  return cache.get(key)
 }
 
 // Students assessed and the share at each level (pooled over rows).
