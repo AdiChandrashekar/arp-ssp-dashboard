@@ -150,7 +150,7 @@ def frame(raw):
     return d
 
 
-def spot_summary(spot, sg, P):
+def spot_summary(spot, sg, P, observed):
     """System-wide spot-assessment figures for the spot page."""
     tot = lambda x: [int(x.assessed.sum())] + [int(x[k].sum()) for k in LEVELS]  # noqa: E731
     by_month = [[m] + tot(x) + [int(len(x))] for m, x in sg.groupby("month")]
@@ -159,12 +159,6 @@ def spot_summary(spot, sg, P):
                for dk, g in sg.groupby("district_key")}
     cls = spot[spot.cls.notna()]
     by_class = {int(c): tot(x) for c, x in cls.groupby("cls")}
-    # Does a school's result carry over to the next month? Same scale only (April 2026 on).
-    s = sg[sg.month >= "2026-04"].sort_values(["skey2", "month"]).copy()
-    s["prev"] = s.groupby("skey2").saksham_s.shift()
-    s["prev_m"] = s.groupby("skey2").mkey.shift()
-    k = s.dropna(subset=["prev", "mkey", "prev_m"])
-    same, diff = k[k.mkey == k.prev_m], k[k.mkey != k.prev_m]
     rng = np.random.default_rng(5)
     x = sg.dropna(subset=["mkey"]).copy()
     halves = {u: rng.integers(2) for u in x.skey2.unique()}
@@ -179,10 +173,144 @@ def spot_summary(spot, sg, P):
         byMonth=by_month, byDistrict=by_dist, byClass=by_class,
         schoolMonths=int(len(sg)), children=int(sg.assessed.sum()), attributed=r3(sg.mkey.notna().mean()),
         assessed5=r3((sg.assessed == 5).mean()),
-        carryOver=dict(sameArp=r3(same.saksham_s.corr(same.prev), 2), otherArp=r3(diff.saksham_s.corr(diff.prev), 2), pairs=int(len(k))),
+        observedClass=observed,
         reliability=rel,
         corr=dict(allSak_flnLean=r3(typed.spotAllSaksham.corr(typed.flnLean), 2), allSak_variety=r3(typed.spotAllSaksham.corr(typed.variety), 2),
                   vsBlock_flnLean=r3(typed.spotVsBlock.corr(typed.flnLean), 2)),
+    )
+
+
+def repeat_summary(d, fln_ids, P):
+    """Return visits: the same class (school, grade, subject) or teacher seen again in a later month.
+
+    Each later visit is paired with the visit before it. To tell what the classroom
+    explains from what the rater explains, every pair is set against a stand-in:
+    the earlier visit is swapped for a visit at another school in the same month,
+    by the same ARP (for same-ARP pairs) or anyone in the same block (otherwise).
+    """
+    items = fln_ids[:-1]  # reading fluency is Hindi only
+    a = d[d.arp].copy()
+    a["bkey"] = a.district + "|" + a.block
+    a["cell"] = a.skey + "|" + a.form + "|" + a.grade.astype(str)
+    a.loc[a.teacher.fillna("").str.len() < 3, "tkey"] = np.nan
+    fl = a[a.form.isin(["FM", "FH"]) & a.grade.isin([1, 2, 3])]
+    rng = np.random.default_rng(11)
+
+    def pairs(x, key):
+        x = x.dropna(subset=[key]).sort_values([key, "date"])
+        p = x.groupby(key).shift()
+        ok = p.date.notna() & (x.month != p.month)
+        return x[ok], p[ok].assign(**{key: x.loc[ok, key]})
+
+    def stand_in(later, earlier, pool, by):
+        groups = {k: v.index.values for k, v in pool.groupby(by)}
+        keep, sub = [], []
+        for i, k, sk in zip(later.index, zip(*(earlier[c] for c in by)), earlier.skey):
+            cand = groups.get(k if len(by) > 1 else k[0])
+            if cand is None:
+                continue
+            c = [j for j in rng.choice(cand, size=min(6, len(cand)), replace=False) if pool.at[j, "skey"] != sk]
+            if c:
+                keep.append(i)
+                sub.append(c[0])
+        return later.loc[keep], pool.loc[sub]
+
+    def agree(x, y, cols):
+        xv, yv = x[cols].values, y[cols].values
+        both = ~np.isnan(xv) & ~np.isnan(yv)
+        return pd.DataFrame(np.where(both, xv == yv, np.nan), columns=cols, index=x.index)
+
+    def stats(x, y, label, cols=items, lean=True):
+        ag = agree(x, y, cols)
+        out = dict(label=label, n=int(len(x)), agree=r3(np.nanmean(ag.values)), ident=r3((ag.fillna(1) == 1).all(axis=1).mean()))
+        if lean:
+            out["r"] = r3(np.corrcoef(x.fln_lean.values, y.fln_lean.values)[0, 1], 2)
+        return out, ag
+
+    later, earlier = pairs(fl, "cell")
+    same = (later.mkey.values == earlier.mkey.values)
+    sl, se = later[same], earlier[same]
+    ol, oe = later[~same], earlier[~same]
+    sl2, se2 = stand_in(sl, se, fl, ["mkey", "month"])
+    ol2, oe2 = stand_in(ol, oe, fl, ["bkey", "month"])
+    s_same, ag_same = stats(sl, se, "Same ARP, same class")
+    s_else, ag_else = stats(sl2, se2, "Same ARP, another school that month")
+    s_oth, ag_oth = stats(ol, oe, "Another ARP, same class")
+    s_blk, ag_blk = stats(ol2, oe2, "Another ARP, another school in the block that month")
+    labels = dict((k, l) for k, l, *_ in FLN_ITEMS)
+    item_rows = [dict(id=k, label=labels[k], same=r3(ag_same[k].mean()), other=r3(ag_else[k].mean()),
+                      otherArp=r3(ag_oth[k].mean()), block=r3(ag_blk[k].mean())) for k in items]
+
+    # After a "no" (or the lowest option), how often is the next answer the top one?
+    def turn(x, y, k):
+        no = y[k].values == 0
+        return r3((x[k].values[no] >= 1).mean()), int(no.sum())
+    turns = []
+    for k in ["guide_used", "peer", "diary", "nipun", "tracker", "remedial", "wb_done", "wb_checked"]:
+        (ts, n), (te, ne) = turn(sl, se, k), turn(sl2, se2, k)
+        (to, no), (tb, nb) = turn(ol, oe, k), turn(ol2, oe2, k)
+        turns.append(dict(id=k, label=labels[k], same=ts, n=n, other=te, otherArp=to, block=tb))
+
+    # Does a class look better on each later visit? Change in positivity between consecutive visits.
+    chg = later.fln_lean.values - earlier.fln_lean.values
+    nth = fl.sort_values("date").groupby(["mkey", "cell"]).cumcount() + 1
+    seq = fl.assign(k=nth, n=fl.groupby(["mkey", "cell"]).cell.transform("size"))
+    seq = seq[seq.n >= 3]
+    trend = dict(sameChange=r3(np.nanmean(chg[same])), otherChange=r3(np.nanmean(chg[~same])),
+                 byVisit=[[int(k), r3(x.fln_lean.mean()), int(len(x))] for k, x in seq[seq.k <= 4].groupby("k")])
+
+    # Same teacher in a later month, in the same class or another grade or subject.
+    tl, te_ = pairs(fl, "tkey")
+    ts_ = tl.mkey.values == te_.mkey.values
+    sc = tl.cell.values == te_.cell.values
+    teacher = [stats(tl[m], te_[m], lab)[0] for lab, m in [
+        ("Same ARP, same class", ts_ & sc), ("Same ARP, another grade or subject", ts_ & ~sc),
+        ("Another ARP, same class", ~ts_ & sc), ("Another ARP, another grade or subject", ~ts_ & ~sc)]]
+
+    # Grade 4-8: the lesson-plan question, which ends the form on "no".
+    g = a[a.form == "G"]
+    gl, ge = pairs(g, "cell")
+    gs = gl.mkey.values == ge.mkey.values
+    gl2, ge2 = stand_in(gl[gs], ge[gs], g, ["mkey", "month"])
+    gl3, ge3 = stand_in(gl[~gs], ge[~gs], g, ["bkey", "month"])
+    lp = [stats(x, y, lab, ["lp_ready"], lean=False)[0] for lab, x, y in [
+        ("Same ARP, same class", gl[gs], ge[gs]), ("Same ARP, another school that month", gl2, ge2),
+        ("Another ARP, same class", gl[~gs], ge[~gs]), ("Another ARP, another school in the block that month", gl3, ge3)]]
+
+    # Per ARP: answers kept on return to a class, against answers matching another school.
+    per = pd.DataFrame({"mkey": sl.mkey.values, "same": ag_same.mean(axis=1).values, "ident": (ag_same.fillna(1) == 1).all(axis=1).values})
+    pe = pd.DataFrame({"mkey": sl2.mkey.values, "other": ag_else.mean(axis=1).values, "ident": (ag_else.fillna(1) == 1).all(axis=1).values})
+    gp, ge_ = per.groupby("mkey"), pe.groupby("mkey")
+    P["returnN"] = gp.size()
+    P["returnAgree"] = gp.same.mean()
+    P["otherAgree"] = ge_.other.mean()
+    P["returnIdent"] = gp.ident.mean()
+    P["otherIdent"] = ge_.ident.mean()
+    P["classMemory"] = P.returnAgree - P.otherAgree
+    for c in ["returnAgree", "otherAgree", "returnIdent", "otherIdent", "classMemory"]:
+        P.loc[P.returnN.fillna(0) < 15, c] = np.nan
+    P["teachersAgain"] = a.dropna(subset=["tkey"]).groupby(["mkey", "tkey"]).month.nunique().ge(2).groupby("mkey").sum()
+    # Is the per-ARP gap a stable trait? Split each ARP's pairs at random into halves.
+    per["h"] = rng.integers(2, size=len(per))
+    pe["h"] = rng.integers(2, size=len(pe))
+    hs = per.groupby(["mkey", "h"]).same.agg(["mean", "size"]).join(pe.groupby(["mkey", "h"]).other.mean())
+    hs = hs[hs["size"] >= 8]
+    hs["gap"] = hs["mean"] - hs.other
+    hw = hs.gap.unstack().dropna()
+    memory_rel = r3(hw[0].corr(hw[1]), 2) if len(hw) > 10 else None
+
+    months_apart = lambda x, y: ((x.date.dt.year - y.date.dt.year) * 12 + x.date.dt.month - y.date.dt.month).clip(upper=12)  # noqa: E731
+    gaps = pd.DataFrame({"m": months_apart(later, earlier).values, "same": same})
+    gap_rows = [[int(m), int(x.same.sum()), int((~x.same).sum())] for m, x in gaps.groupby("m")]
+    cm = a.groupby(["mkey", "cell"]).month.nunique()
+    return dict(
+        classes=int((fl.groupby("cell").month.nunique() >= 2).sum()), classesTotal=int(fl.cell.nunique()),
+        arpClasses=int((cm >= 2).sum()), arpClassesTotal=int(len(cm)),
+        teachers=int((fl.dropna(subset=["tkey"]).groupby("tkey").month.nunique() >= 2).sum()),
+        pairs=dict(same=int(same.sum()), other=int((~same).sum())), gaps=gap_rows,
+        compare=[s_same, s_else, s_oth, s_blk], items=item_rows, turns=turns, trend=trend,
+        teacher=teacher, lessonPlan=lp, memoryReliability=memory_rel,
+        memoryArps=int(P.classMemory.notna().sum()),
     )
 
 
@@ -278,6 +406,7 @@ def main():
             return "uniform"
         return "varied" if r.variety >= HIGH_VARIETY else "mixed"
     P["type"] = P.apply(style, axis=1)
+    repeat = repeat_summary(d, fln_ids, P)
 
     # ---- Spot assessments: children tested on a visit, counted per school and month.
     # The data has no assessor column, so each school-month goes to the ARP who
@@ -309,6 +438,18 @@ def main():
     for c in ["spotSaksham", "spotVsBlock", "spotAllSaksham", "spotZero", "spotOver5"]:
         P.loc[P.spotN.fillna(0) < 10, c] = np.nan
     spot_mon = sg.dropna(subset=["mkey"]).groupby(["mkey", "month"]).saksham_s.mean()
+    # Since August 2026 each test names its class: was it a class the ARP observed in that school that month?
+    sc = spot[spot.cls.notna()].assign(skey2=lambda x: x.district_key + "|" + x.udise)
+    sc = sc.merge(top[["skey2", "month", "mkey"]], on=["skey2", "month"])
+    seen = a2.dropna(subset=["grade"]).groupby(["skey2", "month"]).grade.apply(lambda g: set(g.astype(int)))
+    sc["seen"] = [c in o if isinstance(o, set) else False
+                  for c, o in zip(sc.cls.astype(int), sc.set_index(["skey2", "month"]).index.map(seen))]
+    sc["all_sak"] = sc.saksham == sc.assessed
+    per = sc.groupby("mkey").seen.agg(["mean", "size"])
+    per = per[per["size"] >= 10]["mean"]
+    observed = dict(tests=int(len(sc)), seen=r3(sc.seen.mean()),
+                    allSakSeen=r3(sc[sc.seen].all_sak.mean()), allSakUnseen=r3(sc[~sc.seen].all_sak.mean()),
+                    arps=int(len(per)), arpsUnderHalf=int((per < 0.5).sum()))
 
     # Item profile per ARP: mean answer on every item (FLN on Grade 1-3 forms).
     items_meta = ([dict(id=k, label=l, group="fln", graded=k in GRADED) for k, l, *_ in FLN_ITEMS]
@@ -326,7 +467,7 @@ def main():
         mm = mon.loc[k] if k in mon.index.get_level_values(0) else None
         rec = dict(id=sid, name=r["name"], district=r.district, block=r.block, type=r.type)
         for c in P.columns.drop(["name", "district", "block", "type"]):
-            rec[c] = int(r[c]) if c in ("visits", "months", "schools", "flnForms") and not pd.isna(r[c]) else r3(r[c])
+            rec[c] = int(r[c]) if c in ("visits", "months", "schools", "flnForms", "returnN", "teachersAgain") and not pd.isna(r[c]) else r3(r[c])
         rec["items"] = [r3(prof.at[k, i["id"]]) if k in prof.index else None for i in items_meta]
         rec["monthly"] = [] if mm is None else [[mo, int(x.n), r3(x.allyes, 2), r3(x.sak, 2)] for mo, x in mm.iterrows()]
         arps.append(rec)
@@ -418,7 +559,8 @@ def main():
                       variety_partial=r3(typed.variety.corr(typed.partial), 2)),
         ),
         fln=dict(byGrade=by_grade, options=options, contradictions=contra),
-        spot=spot_summary(spot, sg, P),
+        spot=spot_summary(spot, sg, P, observed),
+        repeat=repeat,
         arps=arps,
     )
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
@@ -426,6 +568,7 @@ def main():
         json.dump(out, fh, ensure_ascii=False, separators=(",", ":"))
     print(f"  -> {OUT}: {len(arps)} ARPs; styles {P.type.value_counts().to_dict()}")
     print(f"  reliability {reliability}")
+    print(f"  repeat {json.dumps({k: v for k, v in repeat.items() if k not in ('items', 'turns', 'gaps')}, ensure_ascii=False)}")
     print(f"  facts {out['meta']['facts']} classConsistency {out['meta']['classConsistency']} itemCorr {out['meta']['itemCorr']}")
 
 

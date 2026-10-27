@@ -77,11 +77,12 @@ header.top h1 { font-size: clamp(30px, 5vw, 56px); margin: 8px 0 10px; }
   </section>
 
   <section class="block">
-    <h2 class="sec">A school's result <mark>barely carries over</mark> to the next month</h2>
-    <p class="lead" id="carryText"></p>
+    <h2 class="sec">Tests of a class the ARP didn't observe <mark>come back all Saksham more often</mark></h2>
+    <p class="lead" id="seenText"></p>
     <div class="duo rise">
-      <div class="stat"><b class="num" id="carrySame"></b><span>how closely a school's Saksham share matches the month before (r), when the same ARP tested it both months</span></div>
-      <div class="stat"><b class="num" id="carryOther"></b><span>the same, when a different ARP tested it the second month</span></div>
+      <div class="stat"><b class="num" id="seenShare"></b><span>of spot tests were in a class the ARP observed in that school that month</span></div>
+      <div class="stat"><b class="num" id="seenAll"></b><span>of those tests had every child marked Saksham</span></div>
+      <div class="stat"><b class="num" id="unseenAll"></b><span>of tests in a class the ARP didn't observe had every child marked Saksham</span></div>
     </div>
   </section>
 
@@ -243,10 +244,12 @@ header.top h1 { font-size: clamp(30px, 5vw, 56px); margin: 8px 0 10px; }
   const ov = typed.filter((d) => d.spotOver5 != null);
   $("over5Text").textContent = `${pct(sp.assessed5)} of school-months tested exactly 5 children. Testing more is a habit some ARPs keep (r = ${sp.reliability.spotOver5}): ${ov.filter((d) => d.spotOver5 >= 0.25).length} ARPs test more than 5 children in a quarter or more of their school-months, and ${ov.filter((d) => d.spotOver5 < 0.02).length} almost never do.`;
 
-  // ---- carry-over ----
-  $("carrySame").textContent = sp.carryOver.sameArp.toFixed(2);
-  $("carryOther").textContent = sp.carryOver.otherArp.toFixed(2);
-  $("carryText").textContent = `From April 2026, when the levels stayed the same, we compared each school's Saksham share with its share the month before (${fmtInt(sp.carryOver.pairs)} pairs of months). The link is weak either way, and weaker when a different ARP did the testing. With 5 children per test, a single month's result says little about a school.`;
+  // ---- tested class vs observed class ----
+  const oc = sp.observedClass;
+  $("seenShare").textContent = pct(oc.seen);
+  $("seenAll").textContent = pct(oc.allSakSeen);
+  $("unseenAll").textContent = pct(oc.allSakUnseen);
+  $("seenText").textContent = `Since August 2026 each spot test records its class, so we can check it against the classes the ARP observed in that school that month (${fmtInt(oc.tests)} tests). Most of the time the ARP tested a class they had just sat in. When they tested a class they hadn't observed, every child was marked Saksham ${(oc.allSakUnseen / oc.allSakSeen).toFixed(1)} times as often. ${oc.arpsUnderHalf} of ${oc.arps} ARPs with at least 10 tests tested an unobserved class more often than not. This shows a pattern, not what happened in any one test.`;
 
   // ---- tables ----
   function table(id, rows) {
